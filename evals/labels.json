@@ -1,0 +1,983 @@
+{
+  "version": "1.0",
+  "label_method": "Agent-authored, source-verified behavioural annotations; not independent human raters. Labels were prepared before running the implementation.",
+  "reference_date": "2026-04-01",
+  "expected_counts": {
+    "complete": 7,
+    "impossible": 3,
+    "constrained": 6,
+    "ambiguous": 4,
+    "missing": 3,
+    "ineligible": 4,
+    "unanswerable": 3
+  },
+  "cases": [
+    {
+      "id": "R01",
+      "kind": "missing",
+      "label": "缺少信息",
+      "input": "R01 [07:53] Chen: Need scarves for Harbor Knits sent out today, usual quantities.",
+      "sender": "Chen",
+      "message": "Need scarves for Harbor Knits sent out today, usual quantities.",
+      "expected_status": "clarification",
+      "expected_slots": {
+        "order_id": null,
+        "pieces": null,
+        "due_date": null
+      },
+      "constraints": [],
+      "clarification_fields": [
+        "pieces"
+      ],
+      "forbidden_workshops": [],
+      "preferred_workshop": null,
+      "feasibility": null,
+      "rationale": "数量不明确，“usual quantities”不是受控数量，需追问；客户和产品也需选定唯一订单。",
+      "evidence": [
+        "data/dispatch_requests.txt",
+        "data/orders.csv",
+        "data/workshops.csv",
+        "data/data_dictionary.md"
+      ],
+      "rubric": {
+        "decision": "行为、槽位、硬约束、偏好、可行性均符合标注",
+        "explanation": "计算独立复核；文字结论与结构化输出一致；拒绝/追问须有具体依据"
+      }
+    },
+    {
+      "id": "R02",
+      "kind": "unanswerable",
+      "label": "数据无法回答",
+      "input": "R02 [07:59] Ravi: Which workshop did we use for the Harbor Knits batch last October?",
+      "sender": "Ravi",
+      "message": "Which workshop did we use for the Harbor Knits batch last October?",
+      "expected_status": "unanswerable",
+      "expected_slots": {
+        "order_id": null,
+        "pieces": null,
+        "due_date": null
+      },
+      "constraints": [],
+      "clarification_fields": [],
+      "forbidden_workshops": [],
+      "preferred_workshop": null,
+      "feasibility": null,
+      "rationale": "只有2026年1至4月数据，没有去年10月的外包记录。",
+      "evidence": [
+        "data/dispatch_requests.txt",
+        "data/orders.csv",
+        "data/workshops.csv",
+        "data/data_dictionary.md"
+      ],
+      "rubric": {
+        "decision": "行为、槽位、硬约束、偏好、可行性均符合标注",
+        "explanation": "计算独立复核；文字结论与结构化输出一致；拒绝/追问须有具体依据"
+      }
+    },
+    {
+      "id": "R03",
+      "kind": "ambiguous",
+      "label": "订单有歧义",
+      "input": "R03 [08:03] Priya: Can we get the TrendCart order moving? They are chasing.",
+      "sender": "Priya",
+      "message": "Can we get the TrendCart order moving? They are chasing.",
+      "expected_status": "clarification",
+      "expected_slots": {
+        "order_id": null,
+        "pieces": null,
+        "due_date": null
+      },
+      "constraints": [],
+      "clarification_fields": [
+        "order_id"
+      ],
+      "forbidden_workshops": [],
+      "preferred_workshop": null,
+      "feasibility": null,
+      "rationale": "TrendCart存在多张在制订单，必须追问订单。",
+      "evidence": [
+        "data/dispatch_requests.txt",
+        "data/orders.csv",
+        "data/workshops.csv",
+        "data/data_dictionary.md"
+      ],
+      "rubric": {
+        "decision": "行为、槽位、硬约束、偏好、可行性均符合标注",
+        "explanation": "计算独立复核；文字结论与结构化输出一致；拒绝/追问须有具体依据"
+      }
+    },
+    {
+      "id": "R04",
+      "kind": "complete",
+      "label": "完整可行",
+      "input": "R04 [08:08] Boss: ORD-041 needs a home today. 600 beanies, back by Apr 21.",
+      "sender": "Boss",
+      "message": "ORD-041 needs a home today. 600 beanies, back by Apr 21.",
+      "expected_status": "recommended",
+      "expected_slots": {
+        "order_id": "ORD-041",
+        "pieces": 600,
+        "due_date": "2026-04-21"
+      },
+      "constraints": [],
+      "clarification_fields": [],
+      "forbidden_workshops": [],
+      "preferred_workshop": null,
+      "feasibility": "feasible",
+      "rationale": "提取明确订单、数量、日期；合法候选中计算交期与成本并推荐。",
+      "evidence": [
+        "data/dispatch_requests.txt",
+        "data/orders.csv",
+        "data/workshops.csv",
+        "data/data_dictionary.md"
+      ],
+      "rubric": {
+        "decision": "行为、槽位、硬约束、偏好、可行性均符合标注",
+        "explanation": "计算独立复核；文字结论与结构化输出一致；拒绝/追问须有具体依据"
+      }
+    },
+    {
+      "id": "R05",
+      "kind": "missing",
+      "label": "缺少信息",
+      "input": "R05 [08:14] Mei: ORD-066 due date just moved up — will confirm the new date after the call, but line something up.",
+      "sender": "Mei",
+      "message": "ORD-066 due date just moved up — will confirm the new date after the call, but line something up.",
+      "expected_status": "clarification",
+      "expected_slots": {
+        "order_id": "ORD-066",
+        "pieces": null,
+        "due_date": null
+      },
+      "constraints": [],
+      "clarification_fields": [
+        "due_date"
+      ],
+      "forbidden_workshops": [],
+      "preferred_workshop": null,
+      "feasibility": null,
+      "rationale": "新截止日期明确尚未确认，不能沿用CSV旧日期。",
+      "evidence": [
+        "data/dispatch_requests.txt",
+        "data/orders.csv",
+        "data/workshops.csv",
+        "data/data_dictionary.md"
+      ],
+      "rubric": {
+        "decision": "行为、槽位、硬约束、偏好、可行性均符合标注",
+        "explanation": "计算独立复核；文字结论与结构化输出一致；拒绝/追问须有具体依据"
+      }
+    },
+    {
+      "id": "R06",
+      "kind": "complete",
+      "label": "完整可行",
+      "input": "R06 [08:18] Chen: Farm out ORD-096 please — 1000 beanies for TrendCart, ship date Apr 17.",
+      "sender": "Chen",
+      "message": "Farm out ORD-096 please — 1000 beanies for TrendCart, ship date Apr 17.",
+      "expected_status": "recommended",
+      "expected_slots": {
+        "order_id": "ORD-096",
+        "pieces": 1000,
+        "due_date": "2026-04-17"
+      },
+      "constraints": [],
+      "clarification_fields": [],
+      "forbidden_workshops": [],
+      "preferred_workshop": null,
+      "feasibility": "feasible",
+      "rationale": "提取明确订单、数量、日期；合法候选中计算交期与成本并推荐。",
+      "evidence": [
+        "data/dispatch_requests.txt",
+        "data/orders.csv",
+        "data/workshops.csv",
+        "data/data_dictionary.md"
+      ],
+      "rubric": {
+        "decision": "行为、槽位、硬约束、偏好、可行性均符合标注",
+        "explanation": "计算独立复核；文字结论与结构化输出一致；拒绝/追问须有具体依据"
+      }
+    },
+    {
+      "id": "R07",
+      "kind": "complete",
+      "label": "完整可行",
+      "input": "R07 [08:23] Ravi: ORD-063 — 100 cardigans. No special requirements, just make Apr 29.",
+      "sender": "Ravi",
+      "message": "ORD-063 — 100 cardigans. No special requirements, just make Apr 29.",
+      "expected_status": "recommended",
+      "expected_slots": {
+        "order_id": "ORD-063",
+        "pieces": 100,
+        "due_date": "2026-04-29"
+      },
+      "constraints": [],
+      "clarification_fields": [],
+      "forbidden_workshops": [],
+      "preferred_workshop": null,
+      "feasibility": "feasible",
+      "rationale": "提取明确订单、数量、日期；合法候选中计算交期与成本并推荐。",
+      "evidence": [
+        "data/dispatch_requests.txt",
+        "data/orders.csv",
+        "data/workshops.csv",
+        "data/data_dictionary.md"
+      ],
+      "rubric": {
+        "decision": "行为、槽位、硬约束、偏好、可行性均符合标注",
+        "explanation": "计算独立复核；文字结论与结构化输出一致；拒绝/追问须有具体依据"
+      }
+    },
+    {
+      "id": "R08",
+      "kind": "ineligible",
+      "label": "指定工坊不合格",
+      "input": "R08 [08:29] Priya: Send ORD-073 (400 hoodies) to FreshStart, their quote was good.",
+      "sender": "Priya",
+      "message": "Send ORD-073 (400 hoodies) to FreshStart, their quote was good.",
+      "expected_status": "refused",
+      "expected_slots": {
+        "order_id": "ORD-073",
+        "pieces": 400,
+        "due_date": "2026-04-20"
+      },
+      "constraints": [],
+      "clarification_fields": [],
+      "forbidden_workshops": [
+        "W8"
+      ],
+      "preferred_workshop": "W8",
+      "feasibility": "feasible",
+      "rationale": "FreshStart/W8 每批上限300，400件超限。",
+      "evidence": [
+        "data/dispatch_requests.txt",
+        "data/orders.csv",
+        "data/workshops.csv",
+        "data/data_dictionary.md"
+      ],
+      "rubric": {
+        "decision": "行为、槽位、硬约束、偏好、可行性均符合标注",
+        "explanation": "计算独立复核；文字结论与结构化输出一致；拒绝/追问须有具体依据"
+      }
+    },
+    {
+      "id": "R09",
+      "kind": "constrained",
+      "label": "带有约束",
+      "input": "R09 [08:33] Boss: ORD-045 — 150 vests for Cotton Club, due Apr 09. It's urgent. Cost doesn't matter, just the fastest turnaround.",
+      "sender": "Boss",
+      "message": "ORD-045 — 150 vests for Cotton Club, due Apr 09. It's urgent. Cost doesn't matter, just the fastest turnaround.",
+      "expected_status": "recommended",
+      "expected_slots": {
+        "order_id": "ORD-045",
+        "pieces": 150,
+        "due_date": "2026-04-09"
+      },
+      "constraints": [
+        {
+          "type": "preference",
+          "value": "fastest",
+          "source": "Boss"
+        }
+      ],
+      "clarification_fields": [],
+      "forbidden_workshops": [],
+      "preferred_workshop": null,
+      "feasibility": "feasible",
+      "rationale": "最快周转优先，不考虑价格。",
+      "evidence": [
+        "data/dispatch_requests.txt",
+        "data/orders.csv",
+        "data/workshops.csv",
+        "data/data_dictionary.md"
+      ],
+      "rubric": {
+        "decision": "行为、槽位、硬约束、偏好、可行性均符合标注",
+        "explanation": "计算独立复核；文字结论与结构化输出一致；拒绝/追问须有具体依据"
+      }
+    },
+    {
+      "id": "R10",
+      "kind": "missing",
+      "label": "缺少信息",
+      "input": "R10 [08:38] Mei: New rush coming in from Loom & Leaf — details to follow, but book capacity somewhere good.",
+      "sender": "Mei",
+      "message": "New rush coming in from Loom & Leaf — details to follow, but book capacity somewhere good.",
+      "expected_status": "clarification",
+      "expected_slots": {
+        "order_id": null,
+        "pieces": null,
+        "due_date": null
+      },
+      "constraints": [],
+      "clarification_fields": [
+        "order_id",
+        "pieces",
+        "due_date"
+      ],
+      "forbidden_workshops": [],
+      "preferred_workshop": null,
+      "feasibility": null,
+      "rationale": "新订单详情、数量、交期均未提供，不得假装预订产能。",
+      "evidence": [
+        "data/dispatch_requests.txt",
+        "data/orders.csv",
+        "data/workshops.csv",
+        "data/data_dictionary.md"
+      ],
+      "rubric": {
+        "decision": "行为、槽位、硬约束、偏好、可行性均符合标注",
+        "explanation": "计算独立复核；文字结论与结构化输出一致；拒绝/追问须有具体依据"
+      }
+    },
+    {
+      "id": "R11",
+      "kind": "ineligible",
+      "label": "指定工坊不合格",
+      "input": "R11 [08:44] Chen: OldMill is free right now — give them ORD-008.",
+      "sender": "Chen",
+      "message": "OldMill is free right now — give them ORD-008.",
+      "expected_status": "refused",
+      "expected_slots": {
+        "order_id": "ORD-008",
+        "pieces": 600,
+        "due_date": "2026-04-09"
+      },
+      "constraints": [],
+      "clarification_fields": [],
+      "forbidden_workshops": [
+        "W7"
+      ],
+      "preferred_workshop": "W7",
+      "feasibility": "feasible",
+      "rationale": "OldMill/W7状态SUSPENDED，不能因用户说空闲而覆写。",
+      "evidence": [
+        "data/dispatch_requests.txt",
+        "data/orders.csv",
+        "data/workshops.csv",
+        "data/data_dictionary.md"
+      ],
+      "rubric": {
+        "decision": "行为、槽位、硬约束、偏好、可行性均符合标注",
+        "explanation": "计算独立复核；文字结论与结构化输出一致；拒绝/追问须有具体依据"
+      }
+    },
+    {
+      "id": "R12",
+      "kind": "constrained",
+      "label": "带有约束",
+      "input": "R12 [08:48] Ravi: ORD-053 — 800 polo shirts for UrbanThread, due Apr 10. Boss says nothing new to QuickStitch this week, they're swamped.",
+      "sender": "Ravi",
+      "message": "ORD-053 — 800 polo shirts for UrbanThread, due Apr 10. Boss says nothing new to QuickStitch this week, they're swamped.",
+      "expected_status": "recommended",
+      "expected_slots": {
+        "order_id": "ORD-053",
+        "pieces": 800,
+        "due_date": "2026-04-10"
+      },
+      "constraints": [
+        {
+          "type": "exclude",
+          "value": "W1",
+          "source": "Boss"
+        }
+      ],
+      "clarification_fields": [],
+      "forbidden_workshops": [
+        "W1"
+      ],
+      "preferred_workshop": null,
+      "feasibility": "feasible",
+      "rationale": "Boss提出本周排除QuickStitch/W1；提出者不是转述人Ravi。",
+      "evidence": [
+        "data/dispatch_requests.txt",
+        "data/orders.csv",
+        "data/workshops.csv",
+        "data/data_dictionary.md"
+      ],
+      "rubric": {
+        "decision": "行为、槽位、硬约束、偏好、可行性均符合标注",
+        "explanation": "计算独立复核；文字结论与结构化输出一致；拒绝/追问须有具体依据"
+      }
+    },
+    {
+      "id": "R13",
+      "kind": "unanswerable",
+      "label": "数据无法回答",
+      "input": "R13 [08:53] Priya: Finance asks: what price did we quote TrendCart on ORD-120?",
+      "sender": "Priya",
+      "message": "Finance asks: what price did we quote TrendCart on ORD-120?",
+      "expected_status": "unanswerable",
+      "expected_slots": {
+        "order_id": "ORD-120",
+        "pieces": null,
+        "due_date": null
+      },
+      "constraints": [],
+      "clarification_fields": [],
+      "forbidden_workshops": [],
+      "preferred_workshop": null,
+      "feasibility": null,
+      "rationale": "CSV成本是工坊外包价，不是对客户报价。",
+      "evidence": [
+        "data/dispatch_requests.txt",
+        "data/orders.csv",
+        "data/workshops.csv",
+        "data/data_dictionary.md"
+      ],
+      "rubric": {
+        "decision": "行为、槽位、硬约束、偏好、可行性均符合标注",
+        "explanation": "计算独立复核；文字结论与结构化输出一致；拒绝/追问须有具体依据"
+      }
+    },
+    {
+      "id": "R14",
+      "kind": "ineligible",
+      "label": "指定工坊不合格",
+      "input": "R14 [08:59] Boss: QuickStitch for the scarves on ORD-103?",
+      "sender": "Boss",
+      "message": "QuickStitch for the scarves on ORD-103?",
+      "expected_status": "refused",
+      "expected_slots": {
+        "order_id": "ORD-103",
+        "pieces": 2000,
+        "due_date": "2026-04-04"
+      },
+      "constraints": [],
+      "clarification_fields": [],
+      "forbidden_workshops": [
+        "W1"
+      ],
+      "preferred_workshop": "W1",
+      "feasibility": "infeasible",
+      "rationale": "QuickStitch/W1只生产TOPS，不能接围巾ACCESSORIES；订单本身也来不及。",
+      "evidence": [
+        "data/dispatch_requests.txt",
+        "data/orders.csv",
+        "data/workshops.csv",
+        "data/data_dictionary.md"
+      ],
+      "rubric": {
+        "decision": "行为、槽位、硬约束、偏好、可行性均符合标注",
+        "explanation": "计算独立复核；文字结论与结构化输出一致；拒绝/追问须有具体依据"
+      }
+    },
+    {
+      "id": "R15",
+      "kind": "ambiguous",
+      "label": "订单有歧义",
+      "input": "R15 [09:03] Mei: Boss wants the Loom & Leaf stuff outside asap.",
+      "sender": "Mei",
+      "message": "Boss wants the Loom & Leaf stuff outside asap.",
+      "expected_status": "clarification",
+      "expected_slots": {
+        "order_id": null,
+        "pieces": null,
+        "due_date": null
+      },
+      "constraints": [],
+      "clarification_fields": [
+        "order_id"
+      ],
+      "forbidden_workshops": [],
+      "preferred_workshop": null,
+      "feasibility": null,
+      "rationale": "Loom & Leaf有多张在制订单，不能猜。",
+      "evidence": [
+        "data/dispatch_requests.txt",
+        "data/orders.csv",
+        "data/workshops.csv",
+        "data/data_dictionary.md"
+      ],
+      "rubric": {
+        "decision": "行为、槽位、硬约束、偏好、可行性均符合标注",
+        "explanation": "计算独立复核；文字结论与结构化输出一致；拒绝/追问须有具体依据"
+      }
+    },
+    {
+      "id": "R16",
+      "kind": "complete",
+      "label": "完整可行",
+      "input": "R16 [09:08] Chen: Loom & Leaf confirmed the reorder: ORD-024, 300 vests. Needs to ship Apr 15, so it has to go out today.",
+      "sender": "Chen",
+      "message": "Loom & Leaf confirmed the reorder: ORD-024, 300 vests. Needs to ship Apr 15, so it has to go out today.",
+      "expected_status": "recommended",
+      "expected_slots": {
+        "order_id": "ORD-024",
+        "pieces": 300,
+        "due_date": "2026-04-15"
+      },
+      "constraints": [],
+      "clarification_fields": [],
+      "forbidden_workshops": [],
+      "preferred_workshop": null,
+      "feasibility": "feasible",
+      "rationale": "提取明确订单、数量、日期；合法候选中计算交期与成本并推荐。",
+      "evidence": [
+        "data/dispatch_requests.txt",
+        "data/orders.csv",
+        "data/workshops.csv",
+        "data/data_dictionary.md"
+      ],
+      "rubric": {
+        "decision": "行为、槽位、硬约束、偏好、可行性均符合标注",
+        "explanation": "计算独立复核；文字结论与结构化输出一致；拒绝/追问须有具体依据"
+      }
+    },
+    {
+      "id": "R17",
+      "kind": "complete",
+      "label": "完整可行",
+      "input": "R17 [09:14] Ravi: ORD-017 — 800 cardigans for TrendCart. Factory is full, this one goes outside. Back by Apr 10 please.",
+      "sender": "Ravi",
+      "message": "ORD-017 — 800 cardigans for TrendCart. Factory is full, this one goes outside. Back by Apr 10 please.",
+      "expected_status": "recommended",
+      "expected_slots": {
+        "order_id": "ORD-017",
+        "pieces": 800,
+        "due_date": "2026-04-10"
+      },
+      "constraints": [],
+      "clarification_fields": [],
+      "forbidden_workshops": [],
+      "preferred_workshop": null,
+      "feasibility": "feasible",
+      "rationale": "提取明确订单、数量、日期；合法候选中计算交期与成本并推荐。",
+      "evidence": [
+        "data/dispatch_requests.txt",
+        "data/orders.csv",
+        "data/workshops.csv",
+        "data/data_dictionary.md"
+      ],
+      "rubric": {
+        "decision": "行为、槽位、硬约束、偏好、可行性均符合标注",
+        "explanation": "计算独立复核；文字结论与结构化输出一致；拒绝/追问须有具体依据"
+      }
+    },
+    {
+      "id": "R18",
+      "kind": "unanswerable",
+      "label": "数据无法回答",
+      "input": "R18 [09:18] Priya: Any movement on ORD-999? Customer is chasing.",
+      "sender": "Priya",
+      "message": "Any movement on ORD-999? Customer is chasing.",
+      "expected_status": "unanswerable",
+      "expected_slots": {
+        "order_id": "ORD-999",
+        "pieces": null,
+        "due_date": null
+      },
+      "constraints": [],
+      "clarification_fields": [],
+      "forbidden_workshops": [],
+      "preferred_workshop": null,
+      "feasibility": null,
+      "rationale": "ORD-999在订单表中不存在，不能编造进度。",
+      "evidence": [
+        "data/dispatch_requests.txt",
+        "data/orders.csv",
+        "data/workshops.csv",
+        "data/data_dictionary.md"
+      ],
+      "rubric": {
+        "decision": "行为、槽位、硬约束、偏好、可行性均符合标注",
+        "explanation": "计算独立复核；文字结论与结构化输出一致；拒绝/追问须有具体依据"
+      }
+    },
+    {
+      "id": "R19",
+      "kind": "ambiguous",
+      "label": "订单有歧义",
+      "input": "R19 [09:23] Boss: That big reorder from last week — send it to whoever is quickest.",
+      "sender": "Boss",
+      "message": "That big reorder from last week — send it to whoever is quickest.",
+      "expected_status": "clarification",
+      "expected_slots": {
+        "order_id": null,
+        "pieces": null,
+        "due_date": null
+      },
+      "constraints": [],
+      "clarification_fields": [
+        "order_id"
+      ],
+      "forbidden_workshops": [],
+      "preferred_workshop": null,
+      "feasibility": null,
+      "rationale": "“上周大返单”不能唯一识别订单。",
+      "evidence": [
+        "data/dispatch_requests.txt",
+        "data/orders.csv",
+        "data/workshops.csv",
+        "data/data_dictionary.md"
+      ],
+      "rubric": {
+        "decision": "行为、槽位、硬约束、偏好、可行性均符合标注",
+        "explanation": "计算独立复核；文字结论与结构化输出一致；拒绝/追问须有具体依据"
+      }
+    },
+    {
+      "id": "R20",
+      "kind": "impossible",
+      "label": "交期不可行",
+      "input": "R20 [09:29] Mei: New one for the network: ORD-103, 2000 scarves for Bright Basics, due Apr 04.",
+      "sender": "Mei",
+      "message": "New one for the network: ORD-103, 2000 scarves for Bright Basics, due Apr 04.",
+      "expected_status": "infeasible",
+      "expected_slots": {
+        "order_id": "ORD-103",
+        "pieces": 2000,
+        "due_date": "2026-04-04"
+      },
+      "constraints": [],
+      "clarification_fields": [],
+      "forbidden_workshops": [],
+      "preferred_workshop": null,
+      "feasibility": "infeasible",
+      "rationale": "最早无缺陷交付仍晚于Apr04；必须给数字、最早日期、方案，不得推荐正常分配。",
+      "evidence": [
+        "data/dispatch_requests.txt",
+        "data/orders.csv",
+        "data/workshops.csv",
+        "data/data_dictionary.md",
+        "docs/source/CHANGELOG.md"
+      ],
+      "rubric": {
+        "decision": "行为、槽位、硬约束、偏好、可行性均符合标注",
+        "explanation": "计算独立复核；文字结论与结构化输出一致；拒绝/追问须有具体依据"
+      }
+    },
+    {
+      "id": "R21",
+      "kind": "constrained",
+      "label": "带有约束",
+      "input": "R21 [09:33] Chen: ORD-081 — 1500 crewneck sweaters for Harbor Knits, due Apr 13. Margin is thin on this one — cheapest shop that can still make Apr 13.",
+      "sender": "Chen",
+      "message": "ORD-081 — 1500 crewneck sweaters for Harbor Knits, due Apr 13. Margin is thin on this one — cheapest shop that can still make Apr 13.",
+      "expected_status": "recommended",
+      "expected_slots": {
+        "order_id": "ORD-081",
+        "pieces": 1500,
+        "due_date": "2026-04-13"
+      },
+      "constraints": [
+        {
+          "type": "preference",
+          "value": "cheapest_on_time",
+          "source": "Chen"
+        }
+      ],
+      "clarification_fields": [],
+      "forbidden_workshops": [],
+      "preferred_workshop": null,
+      "feasibility": "feasible",
+      "rationale": "所有可按时的合格工坊中成本最低，不能不顾交期选BudgetWorks。",
+      "evidence": [
+        "data/dispatch_requests.txt",
+        "data/orders.csv",
+        "data/workshops.csv",
+        "data/data_dictionary.md"
+      ],
+      "rubric": {
+        "decision": "行为、槽位、硬约束、偏好、可行性均符合标注",
+        "explanation": "计算独立复核；文字结论与结构化输出一致；拒绝/追问须有具体依据"
+      }
+    },
+    {
+      "id": "R22",
+      "kind": "complete",
+      "label": "完整可行",
+      "input": "R22 [09:38] Ravi: ORD-040 ready to dispatch. 1200 hoodies for Loom & Leaf, back by Apr 21.",
+      "sender": "Ravi",
+      "message": "ORD-040 ready to dispatch. 1200 hoodies for Loom & Leaf, back by Apr 21.",
+      "expected_status": "recommended",
+      "expected_slots": {
+        "order_id": "ORD-040",
+        "pieces": 1200,
+        "due_date": "2026-04-21"
+      },
+      "constraints": [],
+      "clarification_fields": [],
+      "forbidden_workshops": [],
+      "preferred_workshop": null,
+      "feasibility": "feasible",
+      "rationale": "提取明确订单、数量、日期；合法候选中计算交期与成本并推荐。",
+      "evidence": [
+        "data/dispatch_requests.txt",
+        "data/orders.csv",
+        "data/workshops.csv",
+        "data/data_dictionary.md"
+      ],
+      "rubric": {
+        "decision": "行为、槽位、硬约束、偏好、可行性均符合标注",
+        "explanation": "计算独立复核；文字结论与结构化输出一致；拒绝/追问须有具体依据"
+      }
+    },
+    {
+      "id": "R23",
+      "kind": "constrained",
+      "label": "带有约束",
+      "input": "R23 [09:44] Priya: ORD-005 — 500 scarves for TrendCart, due Apr 20. Split it across two shops if that gets it back faster.",
+      "sender": "Priya",
+      "message": "ORD-005 — 500 scarves for TrendCart, due Apr 20. Split it across two shops if that gets it back faster.",
+      "expected_status": "recommended",
+      "expected_slots": {
+        "order_id": "ORD-005",
+        "pieces": 500,
+        "due_date": "2026-04-20"
+      },
+      "constraints": [
+        {
+          "type": "allow_split",
+          "value": true,
+          "source": "Priya"
+        }
+      ],
+      "clarification_fields": [],
+      "forbidden_workshops": [],
+      "preferred_workshop": null,
+      "feasibility": "feasible",
+      "rationale": "允许两家拆分以加速；拆分仅建议，不写入官方单批次模拟器。",
+      "evidence": [
+        "data/dispatch_requests.txt",
+        "data/orders.csv",
+        "data/workshops.csv",
+        "data/data_dictionary.md"
+      ],
+      "rubric": {
+        "decision": "行为、槽位、硬约束、偏好、可行性均符合标注",
+        "explanation": "计算独立复核；文字结论与结构化输出一致；拒绝/追问须有具体依据"
+      }
+    },
+    {
+      "id": "R24",
+      "kind": "ineligible",
+      "label": "指定工坊不合格",
+      "input": "R24 [09:48] Boss: Little Loom does lovely work — ORD-015 to them?",
+      "sender": "Boss",
+      "message": "Little Loom does lovely work — ORD-015 to them?",
+      "expected_status": "refused",
+      "expected_slots": {
+        "order_id": "ORD-015",
+        "pieces": 300,
+        "due_date": "2026-04-16"
+      },
+      "constraints": [],
+      "clarification_fields": [],
+      "forbidden_workshops": [
+        "W4"
+      ],
+      "preferred_workshop": "W4",
+      "feasibility": "feasible",
+      "rationale": "Little Loom/W4只生产ACCESSORIES，ORD-015为TOPS。",
+      "evidence": [
+        "data/dispatch_requests.txt",
+        "data/orders.csv",
+        "data/workshops.csv",
+        "data/data_dictionary.md"
+      ],
+      "rubric": {
+        "decision": "行为、槽位、硬约束、偏好、可行性均符合标注",
+        "explanation": "计算独立复核；文字结论与结构化输出一致；拒绝/追问须有具体依据"
+      }
+    },
+    {
+      "id": "R25",
+      "kind": "constrained",
+      "label": "带有约束",
+      "input": "R25 [09:53] Mei: ORD-109 — 500 vests for Harbor Knits, due Apr 13. …and keep it away from BudgetWorks, the last batch came back rough.",
+      "sender": "Mei",
+      "message": "ORD-109 — 500 vests for Harbor Knits, due Apr 13. …and keep it away from BudgetWorks, the last batch came back rough.",
+      "expected_status": "recommended",
+      "expected_slots": {
+        "order_id": "ORD-109",
+        "pieces": 500,
+        "due_date": "2026-04-13"
+      },
+      "constraints": [
+        {
+          "type": "exclude",
+          "value": "W3",
+          "source": "Mei"
+        }
+      ],
+      "clarification_fields": [],
+      "forbidden_workshops": [
+        "W3"
+      ],
+      "preferred_workshop": null,
+      "feasibility": "feasible",
+      "rationale": "Mei排除BudgetWorks/W3，应留审计来源。",
+      "evidence": [
+        "data/dispatch_requests.txt",
+        "data/orders.csv",
+        "data/workshops.csv",
+        "data/data_dictionary.md"
+      ],
+      "rubric": {
+        "decision": "行为、槽位、硬约束、偏好、可行性均符合标注",
+        "explanation": "计算独立复核；文字结论与结构化输出一致；拒绝/追问须有具体依据"
+      }
+    },
+    {
+      "id": "R26",
+      "kind": "complete",
+      "label": "完整可行",
+      "input": "R26 [09:59] Chen: Can someone place ORD-010? 1000 cardigans, Cotton Club, due Apr 25.",
+      "sender": "Chen",
+      "message": "Can someone place ORD-010? 1000 cardigans, Cotton Club, due Apr 25.",
+      "expected_status": "recommended",
+      "expected_slots": {
+        "order_id": "ORD-010",
+        "pieces": 1000,
+        "due_date": "2026-04-25"
+      },
+      "constraints": [],
+      "clarification_fields": [],
+      "forbidden_workshops": [],
+      "preferred_workshop": null,
+      "feasibility": "feasible",
+      "rationale": "提取明确订单、数量、日期；合法候选中计算交期与成本并推荐。",
+      "evidence": [
+        "data/dispatch_requests.txt",
+        "data/orders.csv",
+        "data/workshops.csv",
+        "data/data_dictionary.md"
+      ],
+      "rubric": {
+        "decision": "行为、槽位、硬约束、偏好、可行性均符合标注",
+        "explanation": "计算独立复核；文字结论与结构化输出一致；拒绝/追问须有具体依据"
+      }
+    },
+    {
+      "id": "R27",
+      "kind": "constrained",
+      "label": "带有约束",
+      "input": "R27 [10:03] Ravi: ORD-095 — 800 hoodies for Bright Basics, due Apr 26. Bright Basics rejected a batch last month, so lowest defect rate you can get.",
+      "sender": "Ravi",
+      "message": "ORD-095 — 800 hoodies for Bright Basics, due Apr 26. Bright Basics rejected a batch last month, so lowest defect rate you can get.",
+      "expected_status": "recommended",
+      "expected_slots": {
+        "order_id": "ORD-095",
+        "pieces": 800,
+        "due_date": "2026-04-26"
+      },
+      "constraints": [
+        {
+          "type": "preference",
+          "value": "quality",
+          "source": "Ravi"
+        }
+      ],
+      "clarification_fields": [],
+      "forbidden_workshops": [],
+      "preferred_workshop": null,
+      "feasibility": "feasible",
+      "rationale": "所有合格候选中最低缺陷率优先。",
+      "evidence": [
+        "data/dispatch_requests.txt",
+        "data/orders.csv",
+        "data/workshops.csv",
+        "data/data_dictionary.md"
+      ],
+      "rubric": {
+        "decision": "行为、槽位、硬约束、偏好、可行性均符合标注",
+        "explanation": "计算独立复核；文字结论与结构化输出一致；拒绝/追问须有具体依据"
+      }
+    },
+    {
+      "id": "R28",
+      "kind": "impossible",
+      "label": "交期不可行",
+      "input": "R28 [10:08] Priya: Sending ORD-002 outside — 1000 crewneck sweaters. Who has room this week? Due Mar 29.",
+      "sender": "Priya",
+      "message": "Sending ORD-002 outside — 1000 crewneck sweaters. Who has room this week? Due Mar 29.",
+      "expected_status": "infeasible",
+      "expected_slots": {
+        "order_id": "ORD-002",
+        "pieces": 1000,
+        "due_date": "2026-03-29"
+      },
+      "constraints": [],
+      "clarification_fields": [],
+      "forbidden_workshops": [],
+      "preferred_workshop": null,
+      "feasibility": "infeasible",
+      "rationale": "3月29日已过去，不能承诺按时；需给最早可达日期。",
+      "evidence": [
+        "data/dispatch_requests.txt",
+        "data/orders.csv",
+        "data/workshops.csv",
+        "data/data_dictionary.md",
+        "docs/source/CHANGELOG.md"
+      ],
+      "rubric": {
+        "decision": "行为、槽位、硬约束、偏好、可行性均符合标注",
+        "explanation": "计算独立复核；文字结论与结构化输出一致；拒绝/追问须有具体依据"
+      }
+    },
+    {
+      "id": "R29",
+      "kind": "ambiguous",
+      "label": "订单有歧义",
+      "input": "R29 [10:14] Boss: The vests need to go out this week — who takes them?",
+      "sender": "Boss",
+      "message": "The vests need to go out this week — who takes them?",
+      "expected_status": "clarification",
+      "expected_slots": {
+        "order_id": null,
+        "pieces": null,
+        "due_date": null
+      },
+      "constraints": [],
+      "clarification_fields": [
+        "order_id"
+      ],
+      "forbidden_workshops": [],
+      "preferred_workshop": null,
+      "feasibility": null,
+      "rationale": "“背心”匹配多张在制订单，必须追问。",
+      "evidence": [
+        "data/dispatch_requests.txt",
+        "data/orders.csv",
+        "data/workshops.csv",
+        "data/data_dictionary.md"
+      ],
+      "rubric": {
+        "decision": "行为、槽位、硬约束、偏好、可行性均符合标注",
+        "explanation": "计算独立复核；文字结论与结构化输出一致；拒绝/追问须有具体依据"
+      }
+    },
+    {
+      "id": "R30",
+      "kind": "impossible",
+      "label": "交期不可行",
+      "input": "R30 [10:18] Mei: Please allocate ORD-099: 1500 polo shirts, Northwind Apparel. Deadline Apr 05.",
+      "sender": "Mei",
+      "message": "Please allocate ORD-099: 1500 polo shirts, Northwind Apparel. Deadline Apr 05.",
+      "expected_status": "infeasible",
+      "expected_slots": {
+        "order_id": "ORD-099",
+        "pieces": 1500,
+        "due_date": "2026-04-05"
+      },
+      "constraints": [],
+      "clarification_fields": [],
+      "forbidden_workshops": [],
+      "preferred_workshop": null,
+      "feasibility": "infeasible",
+      "rationale": "Apr05仅4天，所有合格整单候选均来不及。",
+      "evidence": [
+        "data/dispatch_requests.txt",
+        "data/orders.csv",
+        "data/workshops.csv",
+        "data/data_dictionary.md",
+        "docs/source/CHANGELOG.md"
+      ],
+      "rubric": {
+        "decision": "行为、槽位、硬约束、偏好、可行性均符合标注",
+        "explanation": "计算独立复核；文字结论与结构化输出一致；拒绝/追问须有具体依据"
+      }
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "origin": "/Users/tinas/\u7814\u7a76\u751f/\u81ea\u5df1\u505a\u7684\u9879\u76eeagent/track1/track2",
+  "files": {
+    "data/data_dictionary.md": "10940ea58568be8b853946e5894eccd31f652d3844f27139a8b37f9600b4c3e1",
+    "data/orders.csv": "0880af9742fe7cc0923c5009e2de48a0bedb57b78cc294e35a1c9721fe0311f8",
+    "data/dispatch_requests.txt": "dd00a2db398e4acaea1becf82137b6d7526c746621c28af5534806105d50117a",
+    "data/workshops.csv": "d7e1c97d3d338a2b5aef8e35f167e3582f22c4526e9c736c5b4c8125505ec59e",
+    "data/orders_stages.csv": "a767f9e96491f88dc6a2d00213f7fc83edb1b1917efdb7810447b9cccd2385c9",
+    "data/workshops_stages.csv": "839cd27c413e491cfc5dbc95995ff421ac37a6804c456a4e590ec5a84ec5998e",
+    "harness/simulate.py": "b845804ad1229f593627b6ef1a6482258331178dbc4ec535274103fc3244593b"
+  }
+}

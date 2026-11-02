@@ -1,0 +1,993 @@
+Track 2 Agent 平台产品手册与 Codex 实施规格 产品手册 技术实施规格 面向零基础学习者 可交给 Codex 执行 
+Track 2 Agent 平台 从产品需求到前后端落地的完整说明书 
+项目：The Quick-Response Subcontracting Desk（快速响应外包调度台）。本文把此前围绕 Skills、Tools、Context/Memory、Prompt、工作流、数据访问、交期估算、推荐策略与测试的教学内容整合为一份工程手册，并补齐前端、后端、API、安全、部署、监控和 Codex 执行要求。 
+重要说明： 本文不是声称项目已经实现或所有代码已经通过验证，而是一份可执行的产品/工程规格。文中会明确区分 Track 2 原始资料要求、教学示例、建议设计与必须通过测试的验收标准。官方模拟器和原始数据文件优先于教学示例。 
+目录 / 快速导航 0. 给 Codex 的总指令 1. 产品目标与成功标准 2. 零基础概念词典 3. 需求与业务规则 4. 系统架构 5. 技术栈建议 6. 项目目录结构 7. 数据与数据访问层 8. Skills 设计与实现 9. 交期估算与官方模拟器 10. 推荐逻辑 11. Tools 设计与接入 12. 基模、API 与环境变量 13. Prompt 设计 14. Context、Memory 与状态 15. LangGraph 工作流 16. 前端产品设计 17. 后端 API 设计 18. 安全、权限与副作用 19. Test、Eval 与 30 条请求 20. 官方 120 单模拟器评估 21. 部署上线 22. 监控、日志与告警 23. 分阶段开发路线 24. 验收清单 25. 术语表 附录：示例代码与修正说明 0. 给 Codex 的总指令（先读本节） 
+Codex 的任务： 根据本手册在当前仓库中实现一个可运行的 Track 2 Agent 平台。先检查已有仓库和官方 track2 文件，不要盲目重建、不覆盖原始数据、不猜测缺失字段。先交付可运行的最小端到端版本，再迭代扩展。每个阶段运行测试并报告结果。 
+0.1 必须遵守的实施原则 
+先检查仓库： 列出目录，找到 data/orders.csv 、 data/workshops.csv 、 data/dispatch_requests.txt 、 harness/simulate.py 、 data/data_dictionary.md 、 CHANGELOG.md 。如果路径不同，先确认实际路径并记录，不要复制一个猜测版本。 
+官方规则是事实来源： 官方 harness/simulate.py 的 eligible_workshops() 、 Simulator.run() 、数据字典与 changelog 优先于本文任何教学伪代码。遇到冲突，按官方规则实现，并在 README 中说明差异。 
+前后端都要实现： 不能只写 Python 脚本或只有聊天框。要有真实可使用的网页界面、后端 API、数据查询、Skill、工具、工作流、审计记录、测试和启动说明。 
+确定性业务逻辑不交给 LLM： 资格判断、成本、交期公式、队列更新、候选过滤和评分必须由 Python 代码执行。LLM 用于理解自然语言、抽取结构化意图、判断是否缺信息、选择已注册工具、组织解释。 
+不要把 LLM 调用塞进官方 allocator： 官方模拟器会调用分配器 120 次，allocator 必须是确定性策略。同一输入和状态应返回同一结果。聊天 UI 可以调用 LLM；模拟器的分配策略不可以。 
+Tools 不求多，求可靠： 每个 Tool 都必须有清楚的用途、输入 Schema、输出 Schema、非目标、失败模式和测试。优先做少量高质量工具，禁止为了展示技术而堆叠无用工具。 
+Skills 先独立验证： 先写纯 Python 函数和单元测试，再封装成 Tool，再连接 LLM/LangGraph。Skill 的“已实现”和“已验证”必须分开标记。 
+不虚构数据： 工厂价格、产能、队列、状态、缺陷率、订单数量和日期必须来自 CSV 或受控的用户输入。数据里没有的信息，明确说明“当前数据无法回答”。 
+不擅自执行有副作用的动作： 当前 MVP 只做建议与审计记录，不自动真的下发订单。如未来增加提交分配、修改数据等动作，必须先预览，再由用户确认，后端校验权限并记录审计日志。 
+密钥不得进入代码仓库： 用 .env 本地注入，提交 .env.example ，把 .env 加入 .gitignore ；浏览器端绝不读取或暴露模型 API Key。 
+先写测试再宣称成功： 实现后执行 lint、类型检查（若采用）、pytest、API 测试、30 条聊天请求评估和官方模拟器评估。报告通过/失败数量、失败原因和未完成事项，不得伪造结果。 
+优先最小可运行版本： 如果仓库没有框架，推荐 React + TypeScript 前端、FastAPI 后端、Pydantic Schema、SQLite 审计记录、LangGraph 工作流（如依赖可用）和一个可配置的 LLM Provider。若仓库已有技术栈，优先沿用并解释。 
+0.2 Codex 开工顺序 
+扫描仓库，汇报已有文件、运行方式、官方数据和模拟器入口。 
+写一份实施计划与目录树。 
+实现数据加载和基础验证；先跑通 CSV 检查。 
+实现 Skills 与测试。 
+实现确定性 allocator 并跑官方模拟器。 
+实现后端 API 和审计日志。 
+实现 LLM 解析层、Prompt、Tools 与工作流。 
+实现前端页面和错误状态。 
+运行全套测试，修复问题。 
+编写 README、.env.example、Dockerfile（如适用）和部署说明。 
+
+1. 产品目标与成功标准 
+1.1 产品是什么 
+这是一个面向服装工厂调度员的快速响应外包调度台。工厂与 8 家外部工坊合作。调度员在群聊中提出订单外包请求，系统要理解请求、查询订单与工坊信息、检查资格、估算交期和成本、应用约束、推荐合适工坊，并记录选择理由。 
+Track 2 的难点不是 CSV 数据本身，而是：自然语言请求往往不完整或有歧义；工坊资格、队列、产能、质量和成本必须准确计算；不可行请求不能被模型“圆过去”；用户体验、工具设计与可辩护的评估都是交付物。 
+1.2 主要用户与任务 
+调度员：快速确定订单应该发给哪家工坊。 
+主管：查看推荐理由、交期风险、成本和被拒绝工坊。 
+评审者/开发者：查看工具规格、测试结果、30 条请求的准确率，以及官方 120 单模拟器分数。 
+1.3 项目成功标准 
+网页可以提交自然语言请求，并呈现解析出的订单、数量、截止日期、约束和建议。 
+信息缺失或多个订单匹配时会追问，不会随便猜。 
+无法满足交期时明确返回不可行，提供数字依据、最早可实现日期和选项，不静默分配。 
+用户排除的工坊不会进入最终推荐。 
+不具备产品能力、已暂停或超批次上限的工坊不能被推荐。 
+每个结论能追溯到源数据、规则、计算结果与模型/工具运行记录。 
+有至少 30 条有验证答案的评估问题；至少 5 条歧义/不可回答/诱发幻觉问题，至少 5 条可行性或行动请求。 
+官方 120 单模拟器可运行；正常与 shock 场景均报告；shock 应按官方说明对多个 seeds 取平均。 
+原始项目分类（来自 Track 2 数据字典）： 30 条请求包括：完整且可行 7 条；完整但不可能 3 条；带约束 6 条；有歧义 4 条；缺少数量或日期 3 条；指定了不能承接工坊 4 条；数据无法回答 3 条。系统行为需要覆盖所有类型，而不只是演示正常推荐。 
+
+2. 零基础概念词典 
+术语 通俗解释 在本项目中的例子 
+前端 Frontend 用户看见和操作的网页。 聊天输入框、工坊卡片、交期标签、历史记录。 
+后端 Backend 接收请求、运行规则、查询数据、调用模型的服务。 FastAPI 服务。 
+API 前后端约定好的通信入口。 网页把消息 POST 到 /api/chat 。 
+HTTP 浏览器和服务之间传输请求/响应的协议。 GET 查询数据，POST 提交分析请求。 
+JSON 用键值结构表示数据的文本格式。 {"order_id":"ORD-081"} 。 
+LLM / 基模 负责理解语言、生成文字和提出工具调用的大模型。 把“不要给 BudgetWorks”解析为排除约束。 
+Tool 有明确输入输出、可被 Agent 调用的函数或 API。 查询订单、获取工坊、运行推荐。 
+Skill 可复用、可测试的专业业务能力；不是所有框架都把它定义成特殊对象。 工坊资格检查、交期估算、候选推荐。 
+Workflow 任务按什么顺序执行、何时分支、何时追问。 解析→校验→查询→计算→确认/解释。 
+Agent 结合上下文、规则和工具推进任务的系统。 判断信息不足时先问用户，不猜订单。 
+Prompt 给模型的角色、规则、工具使用和输出约定。 要求模型不得自行计算成本或编造工坊信息。 
+Context 当前这一轮任务需要的相关信息。 原始消息、订单编号、截止日期、排除名单。 
+Memory 需要跨轮保存的信息；必须有来源、作用域和过期/撤销规则。 某条请求中用户要求排除 BudgetWorks。 
+State 工作流执行时携带的状态数据。 解析结果、候选工坊、当前步骤、错误。 
+Checkpoint 保存工作流中间状态，支持暂停和恢复。 等待用户补充截止日期后继续。 
+RAG 检索外部资料并提供给模型，不等于模型记忆。 如未来加入规则手册检索；本项目 CSV 查询优先使用结构化查询。 
+Embedding / 向量检索 把文本映射为向量并找语义相似内容。 当前数据规模小，通常没必要为 CSV 建向量库。 
+Unit Test 独立验证一个函数或模块。 测试暂停工坊一定被拒绝。 
+Eval 评估整个系统在一组真实/模拟任务上的表现。 对 30 条聊天请求逐条评分。 
+Deployment 把程序放到用户能访问的环境运行。 Docker 部署前端和后端。 
+Monitoring 上线后持续观察可用性、延迟、错误和业务指标。 记录 API 失败率、模型耗时、工具错误率。 
+2.1 Tool、Skill、Workflow、Agent 的关系 
+用户自然语言 → LLM 解析意图 → Workflow 控制顺序 → Tool 调用 Skill → 确定性业务结果 → LLM 解释 
+Tool 与 Skill 的关键区别： Tool 是调用接口；Skill 是业务能力。一个 Skill 可以组合多个 Tools，也可以直接调用纯 Python 函数。Skill 不一定是 LangChain/LangGraph 的固定类，项目可先用普通 Python 模块表达。 
+
+3. 需求与业务规则 
+3.1 每次分配前必须回答的三个问题 
+Can they make it? 工坊是否能做该产品类别： makes 与订单 category 匹配。 
+Can they take it now? 考虑日产能 capacity_pieces_per_day 和已有队列 current_queue_days 。 
+Are they allowed to? 状态必须是 ACTIVE ；订单件数不能超过 max_batch_pieces （空值表示没有批次上限）。 
+如果启用可选 --stages 扩展，还需检查工坊是否覆盖从 dispatch_stage 到 PACKING 的全部剩余工序。默认赛道不需要启用该扩展。 
+3.2 原始数据 
+文件 记录数 作用 
+data/orders.csv 120 行 订单主数据。 
+data/workshops.csv 8 行 外部工坊档案。 
+data/dispatch_requests.txt 30 条 群聊风格自然语言请求，是聊天层评估集。 
+data/data_dictionary.md — 字段定义与时间口径。 
+harness/simulate.py — 官方确定性 allocator 的评估 harness。 
+CHANGELOG.md — 版本变更与需要重新评估的说明。 
+data/orders_stages.csv 、 data/workshops_stages.csv 120 / 8 行 可选阶段扩展。 
+3.3 字段含义 
+orders.csv order_id ：订单编号。 
+customer 、 product ：客户与产品。 
+category ： TOPS 或 ACCESSORIES 。 
+pieces ：件数。 
+order_date 、 due_date ：订单日期与截止日期。 
+status ： COMPLETE 或 IN_PROGRESS 。 
+current_stage ： KNITTING 、 ASSEMBLY 、 WASHING 、 PACKING 或 COMPLETE 。 
+last_activity_date 、 completed_date 、 days_late ：描述厂内实际执行情况；聊天场景和官方模拟器的用途不同。 
+workshops.csv workshop_id 、 name ：工坊编号与名称。 
+capacity_pieces_per_day ：每天可处理件数。 
+pickup_lead_days ：固定运输时间。 
+defect_rate ：批次发生缺陷并返工的概率。 
+cost_per_piece ：每件成本。 
+makes ：可生产的类别，可用 + 连接多个类别。 
+status ： ACTIVE 或 SUSPENDED 。 
+max_batch_pieces ：单批次上限；空白表示无上限。 
+current_queue_days ：当前队列天数。 
+notes ：工坊简短描述，不能把主观描述当作确定的计算事实。 
+一个字段、两个日期口径： 聊天收件箱把 current_queue_days 解释为 2026-04-01 早晨的队列；官方模拟器则把相同数值用作 2026-01-01 的初始队列。官方特意要求不要从一种口径推导另一种。聊天参考日固定为 2026-04-01；不要用运行电脑的真实日期覆盖它。 
+3.4 自然语言请求必须覆盖的行为 
+完整且可行：提取、推荐、解释。 
+完整但不可行：明确说不可行，展示数字、最早可达日期与备选方案，不要默默分配。 
+带约束：例如“不要给 BudgetWorks”“最便宜但必须按时”；约束要记录提出者。 
+歧义：若多个订单匹配，追问，不要猜。 
+缺数量或日期：追问缺失字段。 
+用户指定不合格工坊：说明为什么不能接，并给替代方案。 
+数据无法回答：明确拒绝编造。 
+3.5 业务规则与产品规则分离 
+数据定义的硬约束必须由 Python 实施。用户偏好可以进入候选排序，但不能覆盖工坊资格。举例：用户说“选最便宜的 BudgetWorks”，若 BudgetWorks 已暂停或不支持类别，系统不能因为用户偏好而推荐它，只能解释并提供合法替代项。 
+
+4. 系统架构 
+4.1 推荐架构总览 
+React 前端 ↔ HTTP/JSON ↔ FastAPI 后端 → 输入校验 / Auth → Workflow / LangGraph → LLM Provider 
+Workflow → Tools → Skills（纯 Python） → CSV 数据 / 数据库 
+每次执行 → 结构化日志 → 审计表 / 指标 → Eval 报告 
+4.2 分层职责 
+层 职责 禁止的做法 
+前端 UI 输入、结果展示、澄清、状态、历史、可视化解释。 把 API Key 写进前端；自行计算权威交期。 
+API 层 接收请求、校验输入、返回统一 JSON、管理错误码。 把所有业务逻辑堆在一个路由函数中。 
+Agent/Workflow 层 管理解析、追问、工具调用、分支、暂停恢复。 让模型跳过硬规则；无限循环调用工具。 
+Tool 层 向模型暴露有限、类型明确的动作接口。 提供可任意执行 SQL 或任意文件读写的万能工具。 
+Skill 层 确定性业务计算和规则，独立单元测试。 在核心计算函数内直接请求 LLM。 
+Data 层 读取 CSV/数据库、字段验证、唯一键与数据版本管理。 把模型生成的数据当作真实订单。 
+Observability 记录耗时、异常、工具调用、评分和审计。 把 API Key、完整敏感提示词或无必要个人信息写入日志。 
+4.3 单 Agent 优先 
+当前问题不需要多 Agent。一个调度 Agent 加上清晰的 Skills、Tools 和 Workflow 更容易调试、测试和审计。只有在存在明确的权限隔离、独立上下文或不同任务并行收益时，才考虑拆分多个 Agent。 
+
+5. 技术栈建议 
+模块 建议 原因 
+前端 React + TypeScript + Vite 生态成熟，适合聊天、表格、组件化页面。 
+UI 样式 CSS Modules 或 Tailwind（二选一） 统一设计系统，避免多套样式混杂。 
+后端 Python + FastAPI 与机器学习/Agent 生态一致，易定义 REST API。 
+Schema Pydantic 验证请求、响应和结构化 LLM 输出。 
+Agent Workflow LangGraph（若仓库已有则沿用） 适合有状态、分支、暂停与恢复的任务。 
+LLM 接入 统一 Provider Adapter 模型可替换，避免业务逻辑绑定单一供应商。 
+数据 官方 CSV + SQLite 审计数据库 当前数据小，CSV 是业务数据源，SQLite 记录请求/审计。 
+测试 pytest、HTTPX TestClient、前端测试（Vitest/Testing Library） 分别覆盖业务、API 和 UI。 
+部署 Docker Compose（可选） 本地/服务器环境更一致。 
+监控 结构化日志 + 健康检查 + 基础指标 MVP 先建立可观测性，不必一开始部署复杂平台。 
+如果仓库已经有成熟的技术栈，Codex 应先评估并沿用，不要为了符合本文而大规模重写。依赖版本要固定在 pyproject.toml / requirements.txt 和前端 lockfile 中。 
+
+6. 项目目录结构 
+track2-agent/
+├── frontend/                         # React + TypeScript 前端
+│   ├── src/
+│   │   ├── api/                      # API client、类型定义
+│   │   ├── components/               # ChatPanel、WorkshopCard、ReasoningPanel
+│   │   ├── pages/                    # Chat、Requests、Evaluation、Settings
+│   │   ├── hooks/                    # 请求状态、会话管理
+│   │   ├── styles/                   # 主题、排版、颜色 token
+│   │   └── App.tsx
+│   ├── package.json
+│   └── vite.config.ts
+├── backend/
+│   ├── app/
+│   │   ├── main.py                   # FastAPI 入口
+│   │   ├── config.py                 # 环境变量与配置
+│   │   ├── api/                      # REST 路由
+│   │   ├── schemas/                  # Pydantic 输入/输出模型
+│   │   ├── data_access.py            # CSV/数据库读取
+│   │   ├── tools.py                  # Agent 工具接口
+│   │   ├── agent/
+│   │   │   ├── graph.py              # LangGraph 工作流
+│   │   │   ├── state.py              # State 定义
+│   │   │   ├── prompts.py             # Prompt 模板
+│   │   │   └── llm_provider.py       # 模型适配器
+│   │   ├── skills/
+│   │   │   ├── workshop_eligibility.py
+│   │   │   ├── filter_workshops.py
+│   │   │   ├── delivery_estimation.py
+│   │   │   └── recommendation.py
+│   │   ├── memory/                   # 会话上下文、约束、Checkpoint 接口
+│   │   ├── services/                 # chat、evaluation、audit 服务
+│   │   └── observability/            # 日志、指标、追踪
+│   ├── tests/
+│   │   ├── unit/
+│   │   ├── integration/
+│   │   └── eval/
+│   ├── pyproject.toml
+│   └── Dockerfile
+├── data/                             # 原始官方数据；不覆盖
+├── harness/simulate.py               # 官方模拟器；不修改评分逻辑
+├── evals/                            # 30 条评估集、人工标注答案、报告
+├── docs/                             # 工具规格、架构与运行手册
+├── .env.example                      # 示例变量，不含真实密钥
+├── .gitignore                        # 必须忽略 .env、数据库、日志等
+├── docker-compose.yml                # 可选
+└── README.md 
+若仓库本来没有 frontend/backend 分层，按此结构创建；若已有结构，先映射现有文件，不要重复创建两个同名模块。 
+
+7. 数据与数据访问层 
+7.1 CSV 为什么不能让 LLM 自己读完后心算 
+CSV 是结构化数据。查询订单、判断工坊资格、比较成本和计算日期都应该用确定性代码完成。LLM 可以把“订单 081，4 月 13 日前，不要 BudgetWorks”解析成结构化请求，但随后必须由 Python 查询真实记录。 
+7.2 安全的数据访问示例 
+import csv  # Python 标准库：读取 CSV
+from pathlib import Path  # 跨平台构建路径
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]  # 从 backend/app 回到项目根目录
+DATA_DIR = PROJECT_ROOT / "data"  # 数据目录
+
+def load_csv(filename: str) -> list[dict]:  # 读取 CSV 并返回字典列表
+    path = DATA_DIR / filename  # 拼接路径，不手写系统专用斜杠
+    with path.open("r", encoding="utf-8", newline="") as f:  # 安全打开文件
+        return list(csv.DictReader(f))  # 第一行作为列名，每行变成字典
+
+def get_order(order_id: str) -> dict:  # 按编号查订单
+    rows = load_csv("orders.csv")  # 读取官方订单数据
+    matches = [r for r in rows if r["order_id"] == order_id]  # 精确匹配主键
+    if len(matches) == 0:  # 没有记录
+        raise LookupError(f"未找到订单：{order_id}")  # 明确报告未找到
+    if len(matches) > 1:  # 主键重复属于数据完整性错误
+        raise RuntimeError(f"订单编号不唯一：{order_id}")  # 不要静默取第一条
+    return matches[0]  # 返回唯一订单记录 
+路径要根据实际目录校准。上面假设文件在 backend/app/data_access.py ，所以 parents[2] 才是项目根目录。Codex 应在仓库内验证路径，而不是照抄后假定一定正确。 
+7.3 参数化 SQL 的基本知识（用于 SQLite 审计表） 
+SQL 是数据库查询语言。参数化查询使用占位符而不是拼接用户输入，可以降低 SQL 注入风险，并正确处理引号。 
+# 不推荐：把用户输入直接拼接进 SQL
+sql = "SELECT * FROM task_constraints WHERE target = '" + target + "'"
+
+# 推荐：使用占位符
+conn.execute(
+    "SELECT * FROM task_constraints WHERE target = ?",
+    (target,)  # 单元素元组必须写逗号：(target,)
+) 
+7.4 SQLite 适合存什么 
+聊天会话与请求 ID。 
+结构化解析结果和澄清状态。 
+用户在某次任务中提出的约束。 
+工具调用、推荐结果、拒绝原因与审计记录。 
+评估运行记录与版本号。 
+CSV 仍然是官方订单和工坊资料的事实来源；不要把用户聊天内容直接写回官方 CSV。需要真正变更业务数据时，应另设有权限、有确认和审计的写入流程。 
+
+8. Skills 设计与实现 
+8.1 Skill 规格必须先于代码 
+字段 必须写什么 
+name 稳定、清晰的标识。 
+input 必需字段、类型、单位、允许值。 
+output 结构化结果，包含状态、数值、解释原因。 
+purpose 它要解决哪个业务问题。 
+non-goals 它明确不负责什么。 
+failure modes 缺字段、数据不存在、规则冲突、外部服务失败时如何返回。 
+verification 用哪些单元测试、边界测试、业务样例证明正确。 
+8.2 Skill A：工坊资格检查 
+目标：判断工坊是否能生产指定类别、是否处于 ACTIVE、订单是否超过单批次上限。结果返回 eligible 和 reasons 。不负责排序、交期估算或实际分配。 
+def check_workshop_eligibility(order: dict, workshop: dict) -> dict:
+    reasons = []  # 收集所有不合格原因
+    category = str(order["category"]).strip().upper()  # 标准化订单类别
+    makes = str(workshop["makes"]).strip().upper()  # 标准化工坊类别
+    supported = set(makes.split("+"))  # "TOPS+ACCESSORIES" -> 集合
+    if category not in supported:  # 类别不支持
+        reasons.append("工坊不具备该产品类别的生产能力")
+    status = str(workshop["status"]).strip().upper()  # 读取状态
+    if status != "ACTIVE":  # 仅 ACTIVE 可以接单
+        reasons.append("工坊当前不处于 ACTIVE 状态")
+    pieces = int(order["pieces"])  # 件数转整数；生产代码前应先做字段校验
+    cap_raw = workshop.get("max_batch_pieces")  # 获取批次上限
+    if cap_raw is not None and str(cap_raw).strip() != "":  # 空白表示无上限
+        cap = int(cap_raw)  # 转整数
+        if pieces > cap:  # 超过单批次上限
+            reasons.append("订单数量超过工坊单批次上限")
+    return {"eligible": len(reasons) == 0, "reasons": reasons}  # 结构化结果 
+语法解释： dict 是字典； order["pieces"] 是按键取值； str() / int() 做类型转换； split("+") 按加号拆分字符串； set() 创建集合； not in 表示不属于； append() 把元素加到列表末尾； len(reasons) == 0 表示没有任何拒绝原因。 
+必须修正的教学示例边界： 官方 harness 的 eligible_workshops() 是最高优先级规则。它还支持 Workshop dataclass 和可选 stages。若写独立聊天 Skill，需处理字段缺失/非法值，并用官方函数或完全一致的测试确保资格逻辑不漂移。不能把简单字典函数当作官方实现的替代品。 
+8.3 Skill B：候选工坊筛选 
+输入订单、工坊列表和排除名单。逐家检查，明确排除用户指定工坊，返回候选列表与拒绝原因。排除名称比较要做规范化/别名映射，不能只靠简单大小写比较解决 “Budget Works” 和 “BudgetWorks” 等差异。 
+def filter_eligible_workshops(order: dict, workshops: list[dict], excluded_ids: set[str]) -> dict:
+    eligible = []  # 合格候选
+    rejected = []  # 被拒绝工坊及原因
+    for workshop in workshops:  # 逐家遍历
+        workshop_id = str(workshop["workshop_id"])  # 读取稳定 ID
+        if workshop_id in excluded_ids:  # 用户约束优先过滤
+            rejected.append({"workshop_id": workshop_id, "reasons": ["违反用户排除约束"]})
+            continue  # 跳过本次循环后续步骤
+        result = check_workshop_eligibility(order, workshop)  # 调用已测试的基础 Skill
+        if result["eligible"]:  # 合格
+            eligible.append(workshop)  # 加入候选
+        else:  # 不合格
+            rejected.append({"workshop_id": workshop_id, "reasons": result["reasons"]})
+    return {"eligible_workshops": eligible, "rejected_workshops": rejected}  # 汇总结果 
+8.4 Skill C：交期估算 
+官方模拟器的计算公式与聊天估算应区分。公式和测试详见第 9 节。估算 Skill 不更新队列、不抽取随机数、不做最终排序；它返回基础生产时间、返工情景、期望时间、成本和明确假设。 
+8.5 Skill D：最终推荐 
+将资格筛选、交期估算、用户约束和排序策略组合起来。它必须明确区分“推荐”“存在风险”“当前不可行”“信息不足”“无合格工坊”。不能在不可行时悄悄挑一家工坊并说成已满足交期。 
+8.6 Skill 是否要做成文件夹/说明文件 
+可以为每个 Skill 配一份 SKILL.md ，写清目的、调用时机、输入输出、依赖 Tools、规则、失败模式和验收测试。但本项目真正的规则实现仍应放在可测试的 Python 函数中；不要仅靠自然语言 SKILL.md 保护硬约束。 
+
+9. 交期估算与官方模拟器 
+9.1 官方模拟器公式 
+在官方 harness/simulate.py 中，队列和工作时间按天数计算，工坊每周 7 天工作。对每个批次，先计算当前队列释放时间，再计算生产时间；若随机缺陷事件发生，生产时间乘以 1.5；最后加运输 lead time。停工 shock 还会让相关工作暂停或等待工坊恢复。 
+start = max(day, queue_free[choice])  # 订单到达日与工坊队列释放日取较晚者
+work_days = batch["pieces"] / w.capacity  # 基础生产天数
+if defective:  # 该批次随机发生缺陷
+    work_days *= 1.5  # 半批返工使总生产时间增加 50%
+finish = start + work_days  # 生产完成的模拟日
+queue_free[choice] = finish  # 更新被选工坊的队列释放时间
+done_day = finish + w.lead_days  # 加运输时间
+# 官方日期转换：done_date = day0 + timedelta(days=round(done_day)) 
+9.2 公式理解 
+基础生产时间： T_work = pieces / capacity 。若缺陷发生： T_work = 1.5 × pieces / capacity 。若缺陷概率为 p ，理论期望生产时间为 (pieces / capacity) × (1 + 0.5p) 。这个期望是数学期望，不是单次随机模拟的实际值。 
+例：1,000 件，日产能 200 件，队列 2 天，运输 1 天。基础生产时间 5 天；无缺陷总周转时间 8 天；发生返工总周转时间 10.5 天；若缺陷概率 0.2，期望生产时间 5.5 天、期望总周转时间 8.5 天。 
+9.3 日期取整规则不能混淆 
+官方模拟器使用 round(done_day) 转换为日历日期；之前的聊天估算教学版本采用了 ceil() 向上取整作为较保守的展示策略。这两者不是同一规则。Codex 必须把“聊天产品的风险展示策略”和“官方模拟器的计分规则”分离，绝不悄悄改动官方 harness。 
+9.4 聊天参考日与模拟器起点不同 
+聊天收件箱：参考日期固定为 2026-04-01 ，使用当日解释下的队列值。 
+官方模拟器：从最早订单日期开始（数据说明为 2026-01-01），把同一组队列值用作模拟起始队列。 
+不要从聊天日期推算模拟器队列，反之亦然。 
+聊天请求里的日期按 2026-04-01 解释；对年份不明的日期，应按项目定义解析并在存在歧义时追问。 
+9.5 交期估算函数示例 
+from datetime import date, timedelta  # 日期与时间差
+from math import ceil  # 向上取整
+
+CHAT_REFERENCE_DATE = date(2026, 4, 1)  # 固定业务参考日期
+
+def estimate_delivery(order: dict, workshop: dict, reference_date: date = CHAT_REFERENCE_DATE) -> dict:
+    pieces = int(order["pieces"])  # 订单件数
+    capacity = int(workshop["capacity_pieces_per_day"])  # 日产能
+    queue_days = float(workshop["current_queue_days"])  # 队列天数
+    lead_days = int(workshop["pickup_lead_days"])  # 运输天数
+    defect_rate = float(workshop["defect_rate"])  # 缺陷概率
+    unit_cost = float(workshop["cost_per_piece"])  # 单件成本
+    if pieces < = 0: raise ValueError("订单件数必须大于 0")  # 防止无效件数
+    if capacity < = 0: raise ValueError("工坊日产能必须大于 0")  # 防止除零
+    if queue_days < 0: raise ValueError("队列时间不能为负数")  # 校验队列
+    if lead_days < 0: raise ValueError("运输时间不能为负数")  # 校验运输时间
+    if not 0 < = defect_rate < = 1: raise ValueError("缺陷率必须在 0 到 1 之间")  # 校验概率
+    if unit_cost < 0: raise ValueError("单件成本不能为负数")  # 校验成本
+    base_work = pieces / capacity  # 无缺陷生产时间
+    defect_work = base_work * 1.5  # 缺陷返工生产时间
+    expected_work = base_work * (1 + 0.5 * defect_rate)  # 期望生产时间
+    best_days = queue_days + base_work + lead_days  # 无缺陷周转时间
+    defect_days = queue_days + defect_work + lead_days  # 返工周转时间
+    expected_days = queue_days + expected_work + lead_days  # 期望周转时间
+    # ceil 是聊天层保守日期展示策略；官方模拟器按其自身 round 规则计算
+    return {
+        "order_id": order["order_id"],
+        "workshop_id": workshop["workshop_id"],
+        "base_work_days": base_work,
+        "expected_work_days": expected_work,
+        "best_case_days": best_days,
+        "defect_case_days": defect_days,
+        "expected_days": expected_days,
+        "best_case_date": (reference_date + timedelta(days=ceil(best_days))).isoformat(),
+        "defect_case_date": (reference_date + timedelta(days=ceil(defect_days))).isoformat(),
+        "expected_date": (reference_date + timedelta(days=ceil(expected_days))).isoformat(),
+        "estimated_cost": pieces * unit_cost,
+        "defect_rate": defect_rate,
+    }  # 返回可审计的结构化结果 
+实现注意： 示例中将所有字段直接转换类型，只适合说明计算。正式实现必须先用 Pydantic/显式校验检查缺失值、NaN、负数、日期范围、单位与字段类型；不要让原始异常堆栈直接返回浏览器。 
+9.6 交期单元测试示例 
+from datetime import date
+import pytest
+from app.skills.delivery_estimation import estimate_delivery
+
+def test_delivery_time_calculation():
+    order = {"order_id": "ORD-TEST", "pieces": 1000, "category": "TOPS"}
+    workshop = {"workshop_id": "W-TEST", "capacity_pieces_per_day": "200",
+                "current_queue_days": "2", "pickup_lead_days": "1",
+                "defect_rate": "0.2", "cost_per_piece": "4.5"}
+    result = estimate_delivery(order, workshop, reference_date=date(2026, 4, 1))
+    assert result["base_work_days"] == pytest.approx(5.0)
+    assert result["expected_work_days"] == pytest.approx(5.5)
+    assert result["best_case_days"] == pytest.approx(8.0)
+    assert result["defect_case_days"] == pytest.approx(10.5)
+    assert result["expected_days"] == pytest.approx(8.5)
+    assert result["estimated_cost"] == pytest.approx(4500.0)
+
+def test_invalid_capacity_is_rejected():
+    order = {"order_id": "ORD-TEST", "pieces": 1000, "category": "TOPS"}
+    workshop = {"workshop_id": "W-TEST", "capacity_pieces_per_day": "0",
+                "current_queue_days": "2", "pickup_lead_days": "1",
+                "defect_rate": "0.2", "cost_per_piece": "4.5"}
+    with pytest.raises(ValueError):
+        estimate_delivery(order, workshop) 
+运行： python -m pytest -v 。 pytest.approx() 用于浮点数近似比较； pytest.raises(ValueError) 检查无效输入是否按预期抛出异常。测试通过只证明这些具体案例通过，不代表完整验收完成。 
+
+10. 推荐逻辑 
+10.1 推荐策略建议 
+解析用户请求并确认订单、数量、截止日期。 
+读取官方订单和工坊记录。 
+应用资格规则与用户硬约束。 
+为每家合格工坊计算交期与成本。 
+如果存在满足业务风险策略的候选，按明确排序规则选择。 
+如果没有稳妥方案，返回不可行状态、最早无缺陷日期、期望日期、返工情景日期和替代选项。 
+把决策理由、来源字段、策略版本和被拒绝原因写入审计记录。 
+10.2 不要把“不可行”藏起来 
+对于 R20（仅剩 3 天）、R28（订单已经逾期）和 R30（仅剩 4 天），官方 changelog 指明这些请求是刻意不可行的。正确行为是用数字解释无法满足日期、给出最早可达日期和选项（拆分、接受延迟、升级处理），而不是静默分配。注意官方模拟器本身不支持拆单；聊天层可以把拆单列为业务讨论选项，但不得把它当成模拟器已经验证的执行行为。 
+10.3 结构化结果 Schema 
+{
+  "status": "RECOMMENDATION | INFEASIBLE | NEEDS_CLARIFICATION | NO_ELIGIBLE_WORKSHOP | DATA_UNAVAILABLE",
+  "request_id": "R07",
+  "order_id": "ORD-063",
+  "deadline": "2026-04-29",
+  "recommendation": {
+    "workshop_id": "W2",
+    "estimated_cost": 4500,
+    "best_case_date": "2026-04-10",
+    "expected_date": "2026-04-11",
+    "defect_case_date": "2026-04-12"
+  },
+  "rejected_workshops": [
+    {"workshop_id": "W4", "reasons": ["工坊已暂停"]}
+  ],
+  "assumptions": ["按 2026-04-01 的聊天队列口径估算"],
+  "policy_version": "recommendation-v1"
+} 
+以上 JSON 只是字段结构示例，不是对实际数据的预测。Codex 应使用 Pydantic 定义严格的类型、必填字段和枚举。 
+10.4 排序要可解释 
+可以采用“先满足硬约束，再按业务目标排序”的方式。比如在符合风险阈值和截止日期的候选中最小化成本；如果成本相同，再比较缺陷风险或交期。目标权重必须在代码/配置中明确并经过评估，不能埋在 Prompt 里。任何排序规则变更都要更新策略版本并重跑 Eval。 
+
+11. Tools 设计与接入 
+11.1 推荐最小工具集 
+Tool 名称 输入 输出 用途 非目标/失败模式 
+get_order order_id 订单结构化记录 按唯一编号查订单。 不猜订单；找不到返回 NOT_FOUND；编号重复报数据错误。 
+list_workshops 可选类别过滤 工坊列表 读取工坊状态、产能、队列、价格。 不修改工坊；数据加载失败需返回错误。 
+check_eligibility 订单 ID、工坊 ID 是否合格与原因 实施硬资格规则。 不排序、不估算交期。 
+estimate_delivery 订单 ID、工坊 ID、参考日期策略 日期情景与成本 执行确定性计算。 不是交期保证；无效参数明确失败。 
+recommend_workshop 订单 ID、截止日期、排除/偏好约束 候选、推荐或不可行结果 组合业务 Skill。 不执行真实分配，不绕过硬规则。 
+record_constraint request_id、提出者、约束类型、目标、有效期 约束 ID、记录状态 记录任务约束与审计。 需要身份/权限校验；不可仅信任模型提供的提出者。 
+11.2 Tool 接口包装原则 
+LLM 只提供订单 ID、工坊 ID、日期和用户约束等必要参数。后端根据 ID 查询权威数据，再调用 Skill。不要让模型自己把产能、价格、缺陷率等权威字段传给计算函数。 
+def recommend_order_tool(order_id: str, deadline: str, excluded_workshops: list[str] | None = None) -> dict:
+    order = get_chat_order(order_id)  # 从数据层查真实订单
+    workshops = load_csv("workshops.csv")  # 读取真实工坊档案
+    return recommend_workshop(  # 调用已测试的 Skill
+        order=order,
+        workshops=workshops,
+        deadline=deadline,
+        excluded_workshops=excluded_workshops,
+    ) 
+11.3 工具规格要完整 
+每个工具都要在 docs/tool-spec.md 中说明：name、input、output、purpose、non-goals、failure mode、权限要求、是否有副作用、超时策略、重试策略、幂等策略、测试用例。读取工具与写入工具应分开；任何副作用工具都需要确认步骤与审计轨迹。 
+
+12. 基模、API 与环境变量 
+12.1 基模不是业务规则的唯一执行者 
+模型负责语言理解、抽取意图、生成追问、调用工具、整理结果；Python 负责资格、算术、日期、成本、排序和权限。模型提供商可替换，业务 Skill 不应依赖某个模型 SDK 的具体格式。 
+12.2 使用 Provider Adapter 
+建议定义统一接口，例如 parse_request() 、 generate_response() 、 tool_call() ，具体供应商在 llm_provider.py 中实现。这样可以切换 OpenAI 兼容接口、其他云端模型或本地模型，而不改业务逻辑。具体模型名和 API 参数必须以你实际可用的供应商文档与账号权限为准，不要在代码中写死未经确认的模型名。 
+12.3 .env 放置真实密钥 
+在后端项目目录创建本地 .env 文件，例如： 
+# .env —— 只放在本地/服务器，不提交 Git
+LLM_PROVIDER=openai_compatible
+LLM_BASE_URL=https://your-provider.example/v1
+LLM_MODEL=your-model-name
+LLM_API_KEY=put-your-real-secret-here
+APP_ENV=development
+DATABASE_URL=sqlite:///./data/agent_audit.db
+LOG_LEVEL=INFO 
+上面 URL 和模型名是占位符，不是可直接调用的真实端点。 把它们替换为你实际使用的模型服务商提供的值。不要把真实 Key 发进前端代码、截图、公开仓库或聊天日志。 
+.gitignore 至少包括： 
+.env
+.env.*
+!.env.example
+__pycache__/
+.pytest_cache/
+*.db
+*.sqlite3
+logs/
+node_modules/
+frontend/dist/ 
+.env.example 只放变量名和虚构占位符。后端用 pydantic-settings 或 python-dotenv 读取环境变量；生产环境优先用部署平台的 Secret/Environment 管理，不把密钥烘焙进 Docker 镜像。 
+12.4 API 调用底层原理（小白版） 
+前端通过 HTTP 发请求，通常是 HTTPS，浏览器和后端通过网络传输 JSON。 
+DNS 将域名解析成 IP 地址；TCP 建立可靠连接；TLS 对 HTTPS 连接加密并验证服务器证书。 
+后端接收请求，验证输入与权限，然后调用模型服务。 
+后端将模型请求通过 HTTPS 发给供应商，带上 API Key 认证。 
+供应商返回 JSON，后端解析模型文本或工具调用。 
+后端执行工具并把结果再交给模型，或直接把确定性结果返回前端。 
+前端按状态更新页面。网络超时、服务端错误、模型限流都必须有错误处理。 
+12.5 网络/API 必须记住的词 
+URL： 协议、域名、路径等组成的资源地址。 
+HTTP method： GET 通常读取；POST 通常提交/触发处理；PUT/PATCH 更新；DELETE 删除。具体语义以 API 合约为准。 
+Status code： 200 成功、400 输入错误、401 未认证、403 无权限、404 不存在、409 状态冲突、422 Schema 校验失败、429 限流、500 服务端错误、502/503 上游/服务不可用。 
+Timeout： 请求最多等待多久，避免一直卡住。 
+Retry： 失败重试；只对可安全重试的操作使用，写入操作需要幂等键。 
+Idempotency： 同一个请求重复提交不会造成重复副作用。 
+CORS： 浏览器对跨域请求的安全限制；只配置可信前端域名，不要无脑允许所有来源。 
+
+13. Prompt 设计 
+13.1 Prompt 的职责 
+Prompt 不是业务规则的唯一保险。它指导模型怎么理解与交流，但硬性约束必须在 Python 端重复执行。模型可能犯错，因此后端必须校验所有工具参数和结果。 
+13.2 推荐 System Prompt 模板 
+你是 Track 2 快速响应外包调度助手。
+
+目标：帮助调度员理解请求、检查订单和工坊资格、评估交期与成本，并解释推荐理由。
+
+规则：
+1. 不得编造订单、工坊、价格、产能、状态、队列、缺陷率或日期。
+2. 所有订单/工坊事实必须来自已注册工具返回的数据。
+3. 所有算术、交期和成本计算必须由工具完成；不要心算后给出权威数字。
+4. 工坊必须满足产品类别、ACTIVE 状态、批次上限以及当前请求的硬约束。
+5. 如果订单有歧义、缺少件数或截止日期，先追问，不要猜。
+6. 如果无工坊满足截止日期，明确说明不可行，展示可核查的数字与备选项。
+7. 用户明确排除的工坊不得被推荐；记录约束的提出者和请求作用域。
+8. 用户指定的工坊不符合资格时，解释原因并给合法替代项。
+9. 对数据中无法回答的问题，明确说当前数据不足。
+10. 不执行真实分配或其他副作用，除非系统提供了经授权且经过用户确认的动作工具。
+11. 输出简洁、结构化，先给结论，再给依据、风险和下一步。
+
+当工具结果与用户猜测不一致时，以权威数据和硬业务规则为准，并礼貌解释。 
+13.3 结构化解析结果 
+{
+  "intent": "recommend_workshop",
+  "order_id": "ORD-081",
+  "pieces": null,
+  "deadline": "2026-04-13",
+  "excluded_workshops": ["BudgetWorks"],
+  "preferences": ["low_cost"],
+  "missing_fields": ["pieces"],
+  "ambiguities": [],
+  "needs_clarification": true
+} 
+这只是示例结构，不是说示例请求真实缺少件数。关键是 Schema 应允许缺失字段显式为 null ，并要求模型指出缺失/歧义，而不是填一个看似合理的值。 
+13.4 Prompt 版本化与评估 
+把 Prompt 存在文件中并给出版本号。 
+每次修改 Prompt 后重跑全部 30 条评估集。 
+记录模型名、温度/采样配置、Prompt 版本、工具版本与数据版本。 
+不能只挑成功样例演示；要保留失败案例。 
+
+14. Context、Memory 与状态 
+14.1 Context 是当前任务材料 
+上下文构建器将不同来源的数据整合为一个可控结构，例如原始消息、解析结果、请求编号、订单数据、约束、已调用工具结果和当前状态。它负责整理，不负责决定哪个工坊最优。 
+def build_task_context(request_id: str, user_message: str, order_id: str | None, deadline: str | None) -> dict:
+    constraints = get_task_constraints(request_id)  # 读取本请求的约束
+    return {
+        "request_id": request_id,  # 当前请求 ID
+        "user_message": user_message,  # 原始消息，用于追溯
+        "order_id": order_id,  # 已解析订单 ID
+        "deadline": deadline,  # 已解析截止日期
+        "constraints": constraints,  # 有来源的约束记录
+    }  # 返回统一上下文结构 
+14.2 Memory 的边界 
+Memory 不是万能数据库，也不是所有历史对话都要塞进 Prompt。把记忆分成： 
+短期对话状态： 当前请求缺哪个字段、用户是否已回答、工具执行到了哪一步。 
+任务约束记忆： 例如“这次请求不要 BudgetWorks”，必须绑定 request_id、提出者、时间、有效期和撤销状态。 
+审计历史： 记录系统做过什么，不应由模型随意改写。 
+Checkpoint： 保存 Workflow 执行状态，供中断后恢复。 
+长期用户偏好（可选）： 只有确实有价值且得到授权才保存；不要把一次性任务限制误当成永久偏好。 
+14.3 SQLite 约束表示例 
+CREATE TABLE IF NOT EXISTS task_constraints (
+    constraint_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    request_id TEXT NOT NULL,
+    imposed_by TEXT NOT NULL,
+    constraint_type TEXT NOT NULL,
+    target TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    expires_at TEXT,
+    active INTEGER NOT NULL DEFAULT 1
+); 
+插入时使用参数化查询；读取时不仅过滤 active=1 ，还必须过滤过期记录，并检查用户身份、租户范围和权限。示例表是最小教学结构，生产版本应补上唯一约束、撤销原因、审计事件和索引。 
+14.4 为什么要有 State 
+State 是一次工作流运行中的结构化状态。建议字段包括 request_id 、 messages 、 parsed_request 、 missing_fields 、 order 、 workshops 、 constraints 、 eligibility_result 、 estimates 、 recommendation 、 tool_trace 、 error 和 status 。不要把所有内容都做成无类型的自由文本。 
+14.5 Checkpoint 的用途 
+当模型发现截止日期缺失时，Workflow 应暂停并向用户追问。用户回答后，通过同一会话/线程恢复状态，而不是从头猜一次。Checkpoint 不等于永久记忆；要设置存储期限、权限与清理策略。 
+
+15. LangGraph 工作流 
+15.1 推荐节点 
+START → parse_request → validate_fields → clarify_or_continue → load_data → check_eligibility → estimate → recommend → respond + audit → END 
+15.2 节点职责 
+parse_request ：从自然语言提取订单、数量、截止日期、工坊建议、硬约束和偏好；输出结构化 Schema。 
+validate_fields ：验证日期、件数和字段类型；识别缺失字段。 
+clarify_or_continue ：有歧义/缺字段则生成追问并暂停；否则继续。 
+load_data ：通过 Data Access 查询订单和工坊。 
+check_eligibility ：应用官方硬规则与用户约束。 
+estimate ：计算交期/成本情景。 
+recommend ：按版本化策略生成推荐或不可行结果。 
+respond ：把结构化结果转换成用户能理解的语言。 
+audit ：记录决策、数据版本、工具调用、结果和耗时。 
+15.3 路由与循环 
+若缺少字段：进入澄清节点，等待用户回答；若输入有效：进入查询和计算；若工具错误：进入错误处理节点，不允许无限重试；若没有合格工坊：返回 NO_ELIGIBLE_WORKSHOP ；若截止日期不可行：返回 INFEASIBLE ；若成功：返回 RECOMMENDATION 。所有循环必须有最大迭代次数和超时。 
+15.4 不要把工作流写成无边界 Agent Loop 
+本项目任务有明确步骤，应优先使用显式图/流程。LLM 可以决定“需要追问”或“调用哪一个注册工具”，但不能无限自主地生成工具名、任意执行代码或绕过资格检查。 
+
+16. 前端产品设计 
+16.1 页面信息架构 
+工作台 / Chat： 主聊天区、输入框、建议问题、处理中状态、澄清问题、推荐结果卡片。 
+推荐详情： 工坊、成本、基础/期望/返工情景日期、是否按时、缺陷风险、选择理由、被排除工坊及原因。 
+工坊目录： 8 家工坊的能力、日产能、队列、缺陷率、单件成本、状态和批次上限。 
+订单查询： 订单编号、类别、件数、截止日期、状态等。 
+请求历史： 每个 request 的原文、解析、工具轨迹、结果和时间。 
+评估中心： 30 条请求逐条结果、期望行为、实际行为、评分和失败类型。 
+系统状态/设置： API 健康状态、模型配置是否就绪（不展示密钥值）、版本信息。 
+16.2 聊天页布局建议 
+左侧：导航（工作台、订单、工坊、历史、评估）。 
+中间：聊天消息流，用户消息与 Agent 消息视觉区分。 
+右侧（桌面端）：订单/约束摘要与推荐详情；窄屏折叠为抽屉。 
+输入框支持自然语言，不强迫用户先填复杂表单；但澄清时可以用小表单选择订单或日期。 
+结果要先展示结论，再展示“为什么”、数字来源和假设。 
+16.3 必备组件 
+组件 内容 状态 
+ChatMessage 消息正文、时间、发送方、错误标记。 发送中/成功/失败。 
+ClarificationCard 缺少订单、数量或日期时提问。 待回答/已回答。 
+RecommendationCard 推荐工坊、成本、交期与理由。 推荐/不可行/无候选。 
+WorkshopTable 8 家工坊的可比数据。 加载/空/错误。 
+ReasoningPanel 可核查的业务理由、来源字段和计算。 展开/收起。 
+ToolTrace 执行了哪些工具、耗时、结果状态。 只读审计视图。 
+StatusBadge ACTIVE、SUSPENDED、INFEASIBLE 等状态。 使用文字+颜色，不仅依赖颜色。 
+16.4 交互与错误状态 
+发送消息后禁用重复提交或使用 request_id/idempotency key。 
+显示“正在解析请求”“正在检查工坊”“正在计算交期”等阶段，不要显示虚假的进度百分比。 
+超时后允许重试；显示可理解错误，不显示堆栈或密钥。 
+网络断开后保留未发送草稿。 
+对不可行方案使用明确警示；对建议方案展示风险，不要把期望日期标成保证日期。 
+表格可排序，但 UI 排序不能改变后端业务决策。 
+支持键盘操作、合理对比度、屏幕阅读器标签和响应式布局。 
+16.5 前端不应该做的事 
+不在浏览器调用带有私密 API Key 的模型端点。 
+不计算真实成本、队列或交期作为最终结果。 
+不从 LLM 的自然语言答案反向猜测结构化状态；后端要返回 JSON Schema。 
+不直接读本地服务器 CSV。 
+
+17. 后端 API 设计 
+17.1 推荐 REST API 
+Method / Path 用途 输入/输出概要 
+GET /api/health 健康检查 状态、版本；不泄露环境变量。 
+POST /api/chat 提交聊天请求 message、conversation_id 可选；返回答复、状态、结构化结果、request_id。 
+GET /api/orders/{order_id} 查询订单 真实订单字段；不存在返回 404。 
+GET /api/workshops 查询工坊 可选 category/status 过滤。 
+POST /api/recommendations 直接调用推荐 order_id、deadline、excluded_workshops、preferences。 
+GET /api/requests/{request_id} 查询某次请求与审计记录 需要身份/权限校验。 
+GET /api/evaluations/latest 读取最近评估报告 得分、通过数、失败样例、版本。 
+17.2 请求响应示例 
+POST /api/chat
+Content-Type: application/json
+
+{
+  "message": "给 ORD-081 找一家工坊，4 月 13 日前交货，不要 BudgetWorks",
+  "conversation_id": "conv_demo_001"
+}
+
+200 OK
+{
+  "request_id": "req_...",
+  "conversation_id": "conv_demo_001",
+  "status": "RECOMMENDATION",
+  "answer": "……",
+  "structured_result": {"order_id": "ORD-081", "deadline": "2026-04-13"},
+  "needs_clarification": false,
+  "trace_id": "trace_..."
+} 
+上例只展示协议格式，响应中的推荐值应由实际工具运行产生，不能把示例内容当成已核实结果。 
+17.3 统一错误格式 
+{
+  "error": {
+    "code": "ORDER_NOT_FOUND",
+    "message": "未找到该订单，请检查订单编号。",
+    "request_id": "req_...",
+    "retryable": false
+  }
+} 
+17.4 后端 API 代码骨架 
+from fastapi import FastAPI, HTTPException  # Web 框架与 HTTP 错误
+from pydantic import BaseModel, Field  # 请求体 Schema
+
+app = FastAPI(title="Track 2 Agent API")  # 创建 API 应用
+
+class ChatRequest(BaseModel):  # 定义请求 JSON 的结构
+    message: str = Field(min_length=1, max_length=8000)  # 非空且限制长度
+    conversation_id: str | None = None  # 可选会话 ID
+
+@app.get("/api/health")  # 声明 GET 健康检查路由
+async def health():  # async 表示异步函数
+    return {"status": "ok"}  # 返回 JSON
+
+@app.post("/api/chat")  # 声明 POST 聊天路由
+async def chat(request: ChatRequest):  # FastAPI 自动验证 JSON
+    # TODO: 调用 chat service / LangGraph；不要把业务逻辑写在路由里
+    return {"status": "accepted", "message": request.message}  # 临时骨架，不是最终 Agent 
+启动开发服务（在 backend 环境中）： uvicorn app.main:app --reload 。 --reload 仅用于开发，不应直接用于生产环境。 
+
+18. 安全、权限与副作用 
+18.1 输入校验 
+限制消息长度、字段类型和请求体大小。 
+日期采用明确格式；模糊日期要追问。 
+订单编号必须从数据中查到；工坊 ID 必须来自受控列表。 
+检查数字范围、空字符串、NaN、负数和非法枚举。 
+LLM 的结构化输出仍需后端 Schema 验证；不能信任模型一定遵守格式。 
+18.2 Prompt Injection / 工具安全 
+用户消息、工坊 notes、CSV 内容都属于数据，不是能覆盖系统规则的指令。模型不能因为数据字段里出现“忽略之前规则”就改变业务规则。Tools 使用 allowlist，禁止任意 shell、任意 Python 执行、任意 SQL 和任意文件路径读取。 
+18.3 权限与 Memory 隔离 
+每条任务约束绑定已认证用户、request_id 和必要的组织/租户范围。 
+不能只相信模型传来的 imposed_by ；提出者身份来自后端认证上下文。 
+查询 Memory 时校验请求归属、active 状态、过期时间与撤销状态。 
+错误信息不能暴露其他请求或用户的记录。 
+18.4 副作用与人工确认 
+MVP 只生成推荐，不自动下单。如果将来增加“确认并分配”动作，流程必须是：预览计划 → 用户明确确认 → 服务端再次验证状态/资格 → 幂等执行 → 写入审计日志 → 返回执行 ID。工具规范要写出 blast radius（最坏可能影响什么）与保护措施。 
+18.5 日志中的秘密 
+禁止记录 API Key、Authorization Header、完整 .env。对用户消息与工具输入只记录实现排错所需的最少内容；根据项目需要设置脱敏和保留期限。 
+
+19. Test、Eval 与 30 条请求 
+19.1 三层测试 
+层 测什么 示例 
+Unit tests 单个函数规则正确。 暂停工坊被拒绝；成本计算正确。 
+Integration tests 数据、Skill、Tool、API 连接正确。 POST 推荐请求能查 CSV 并返回结构化结果。 
+End-to-end / Eval 自然语言到最终行为的完整效果。 30 条请求是否追问、守约束、拒绝幻觉。 
+19.2 最低测试覆盖 
+工坊状态为 SUSPENDED。 
+工坊类别不匹配。 
+订单件数超过 max_batch_pieces。 
+max_batch_pieces 为空表示无限制。 
+排除工坊不能进入候选。 
+成本与交期计算正确。 
+缺陷率为 0、1 以及非法范围。 
+产能为 0、负数或缺失。 
+订单不存在或重复 ID。 
+截止日期缺失/歧义/格式错误。 
+全部工坊都不合格。 
+全部方案无法满足交期。 
+LLM 超时、429 限流、上游 5xx。 
+工具返回结构不符合 Schema。 
+重复请求不会重复执行副作用。 
+19.3 30 条聊天请求评估集 
+必须以官方 dispatch_requests.txt 为原始评估集。为每条请求建立人工验证的标注，包括：request_id、原始文本、意图类型、订单 ID（若明确）、件数（若提供/要求）、截止日期、约束、应追问字段、可行性、允许/禁止工坊、正确的下一步行为、证据来源、评分标准。不要只标最终自然语言答案，要标“行为”。 
+至少 5 条是模糊、不可回答或诱导幻觉；至少 5 条是可行性/动作请求，而非简单查表。Track 2 的分类计数应与数据字典一致：7 完整可行、3 完整但不可能、6 带约束、4 歧义、3 缺数值/日期、4 指定不合格工坊、3 数据无法回答。 
+19.4 评估指标 
+Intent accuracy： 是否识别请求类型。 
+Slot extraction accuracy： 订单、日期、数量、工坊与约束是否提取正确。 
+Clarification correctness： 该追问时是否追问，不该追问时是否过度追问。 
+Hard-constraint violation rate： 是否推荐被排除/暂停/不支持/超上限工坊。目标应为 0。 
+Feasibility accuracy： 是否正确判断交期可行性。 
+Unsupported-claim rate： 是否编造数据。目标应尽可能为 0。 
+Tool success rate / latency： 工具调用成功率和耗时。 
+Reason traceability： 每个关键数字是否能追溯到数据和公式。 
+19.5 评估数据格式示例 
+{
+  "request_id": "Rxx",
+  "input": "原始请求文本原样保留",
+  "expected_behavior": "ASK_CLARIFICATION | RECOMMEND | INFEASIBLE | REFUSE_INVALID_WORKSHOP | DATA_UNAVAILABLE",
+  "expected_slots": {"order_id": null, "pieces": null, "deadline": null},
+  "constraints": [],
+  "must_not_claim": ["数据中不存在的价格或工坊状态"],
+  "evidence": ["data/dispatch_requests.txt", "data/orders.csv", "data/workshops.csv"],
+  "rubric": {"correct_behavior": 1, "no_hallucination": 1, "constraint_compliance": 1}
+} 
+19.6 失败样例驱动迭代 
+跑完整 30 条评估。 
+按失败类别统计，不要只看总准确率。 
+优先修复硬约束违规、幻觉和错误分配。 
+修复后重跑全部测试，而不是只重跑失败样例。 
+记录 Prompt、模型、代码、数据与策略版本。 
+
+20. 官方 120 单模拟器评估 
+20.1 聊天 Agent 与 allocator 分开 
+聊天 Agent 负责解析群聊、追问和解释；官方模拟器的 allocator 是一个确定性函数，签名大致为 my_allocator(batch, workshops, queues) -> workshop_id 。它不得在内部调用 LLM。相同输入和队列状态必须给出相同结果。 
+20.2 官方 harness 使用方式 
+# 在官方 Track 2 harness 目录按其 README/脚本位置运行
+python simulate.py
+python simulate.py --shock
+python simulate.py --shock --seeds 10
+python simulate.py --seed 7 
+若你的脚本与 harness 不在同一目录，应从正确工作目录执行，或按官方路径调整命令。不要修改官方模拟器的评分公式来提高自己的分数。 
+20.3 官方模拟器会计算什么 
+平均周转天数（mean days）。 
+90 分位周转天数（p90 days）。 
+迟交比例（% late）。 
+平均迟交天数（late days，按所有订单平均，准时订单计 0）。 
+缺陷比例（% defect）。 
+按件数加权的缺陷比例（% def pcs）。 
+总成本（cost）。 
+最大工坊份额（max share）。 
+20.4 Shock 鲁棒性 
+Shock 场景会在模拟过程中随机选择一家 ACTIVE 工坊关闭约两周。官方 changelog 要求报告鲁棒性时对 10 个种子取平均，例如 python simulate.py --shock --seeds 10 。记录 seed 范围和策略版本。不要只报告一个 seed 的结果。 
+20.5 与 Baseline 比较 
+至少对比官方自带的基线策略，并说明主要目标、守门指标和权衡。不要只说“比基线更好”，要用同一 harness 输出的数值比较。评估目标和约束应以 Track 2 项目说明当前版本为准。 
+
+21. 部署上线 
+21.1 本地开发启动流程 
+安装 Python 项目指定版本与 Node.js。 
+创建并激活 Python 虚拟环境： python -m venv .venv ，macOS/Linux 用 source .venv/bin/activate ，Windows 用 .venv\Scripts\activate 。 
+安装后端依赖： pip install -e . 或按仓库说明安装。 
+复制 .env.example 为 .env ，填入真实 Provider 配置；不要提交 .env 。 
+运行后端测试： python -m pytest -v 。 
+启动后端： uvicorn app.main:app --reload （按实际 package path 调整）。 
+进入前端目录安装依赖： npm install ；启动： npm run dev 。 
+在浏览器访问 Vite 输出的本地地址，确认 API base URL 指向本地后端。 
+21.2 环境分层 
+Development： 开发热重载、测试数据、调试日志。 
+Staging： 尽量接近生产，使用测试 Key 与脱敏数据，执行验收。 
+Production： 关闭 debug/reload，使用 Secret Manager、HTTPS、权限控制、健康检查和日志保留策略。 
+21.3 Docker 建议 
+前后端可用 Docker Compose 本地协同；生产部署时根据实际平台决定是否分别构建镜像。镜像中不得包含真实 Key。把 CSV 数据作为只读挂载或随版本打包，并记录数据版本。SQLite 文件若用于持久审计，应放在持久化卷中并制定备份策略。 
+21.4 上线前检查 
+全套测试通过。 
+30 条聊天请求 Eval 有报告。 
+官方模拟器正常与 shock 场景有报告。 
+API Key 只在后端，未进入 Git 历史。 
+HTTPS、CORS、认证和权限已配置。 
+健康检查、日志、超时和错误响应正常。 
+备份与回滚方案已写明。 
+README 能让新开发者从空环境启动项目。 
+
+22. 监控、日志与告警 
+22.1 每个请求建议记录的字段 
+request_id 、 conversation_id 、时间戳。 
+代码版本、Prompt 版本、模型 Provider/模型名、数据版本。 
+总耗时、LLM 耗时、每个 Tool 耗时、重试次数。 
+请求状态：成功、需澄清、不可行、数据缺失、工具错误、模型错误。 
+工具调用名称、参数的安全摘要、返回状态。 
+推荐工坊、资格拒绝原因、交期/成本估算与使用的策略版本。 
+Eval 标签（若为评估请求）和最终评分。 
+22.2 不要记录什么 
+API Key、Authorization Header、Cookie、Secret。 
+不必要的个人数据。 
+未经脱敏的敏感完整请求体（按业务与隐私要求决定保留）。 
+22.3 核心监控指标 
+指标 意义 告警方向 
+API availability 服务是否可用。 健康检查连续失败。 
+p50/p95 latency 中位/高分位响应时间。 延迟超过目标。 
+LLM error / rate limit 模型供应商错误与限流。 错误率持续升高。 
+Tool failure rate 工具执行失败比例。 数据读取或 Schema 错误增加。 
+Hard-constraint violations 是否发生违规推荐。 任何一次都应高优先级调查。 
+Hallucination/unsupported claims 是否出现无来源事实。 评估集中出现即回归失败。 
+Clarification rate 追问比例是否异常。 突增可能是解析退化或数据变化。 
+Infeasible rate 不可行任务比例。 结合业务数据变化分析，不应盲目降低。 
+22.4 线上失败处理 
+记录 trace_id/request_id 与错误类型。 
+区分模型错误、网络错误、业务不可行和数据错误。 
+对可重试的暂时性错误使用有限次数指数退避；不可重试的业务错误不重试。 
+降级时可以提供纯规则候选查询，但要明确提示“模型解释暂不可用”；不得伪造模型成功。 
+修复后增加回归测试，并重新跑 Eval。 
+
+23. 分阶段开发路线（Codex 必须按阶段提交） 
+阶段 实现内容 完成定义 
+0. 仓库勘察 列目录、确认 Python/Node 版本、数据路径、harness 入口、依赖。 提交仓库现状说明与计划。 
+1. 数据层 CSV 读取、字段验证、唯一键、数据检查命令。 能验证 120 orders / 8 workshops / 30 requests，错误可读。 
+2. Skills 资格检查、候选筛选、交期估算、推荐；单元测试。 每个 Skill 有规格、输入输出、失败模式、测试。 
+3. 确定性 allocator 实现官方签名的 deterministic policy，接入 harness。 官方模拟器能运行，所有分配合法，报告可复现。 
+4. 后端 API FastAPI、Schema、错误处理、审计记录。 HTTP 测试通过，OpenAPI 文档可用。 
+5. LLM 层 Provider Adapter、Prompt、结构化解析、Tool calling。 模型输出经 Schema 校验，失败能降级/追问。 
+6. Workflow / Memory State、条件分支、澄清、Checkpoint、任务约束表。 多轮澄清能恢复；约束隔离且可审计。 
+7. 前端 Chat、工坊表、推荐卡、历史、Eval 页面。 用户可完成端到端流程，错误/加载/空状态齐全。 
+8. Eval 30 条请求标注、逐条运行、失败分析。 输出可复现报告，不伪造准确率。 
+9. 部署与监控 环境变量、Docker、健康检查、结构化日志。 新环境按 README 可启动，密钥安全。 
+23.1 每阶段 Codex 的交付格式 
+修改文件列表。 
+关键设计决定与理由。 
+执行过的命令。 
+测试数量、通过/失败数量。 
+未解决问题与下一步。 
+不允许只说“已完成”，必须提供可核实的测试结果。 
+
+24. 最终验收清单 
+24.1 产品体验 
+用户能在网页输入自然语言请求。 
+页面能展示解析结果和澄清问题。 
+推荐卡能显示工坊、交期、成本、风险与理由。 
+不可行、无候选、数据缺失和系统错误都有不同状态。 
+工坊目录、请求历史、评估报告可查看。 
+页面响应式、键盘可操作、加载和错误状态完整。 
+24.2 业务正确性 
+类别不匹配的工坊不能被选中。 
+SUSPENDED 工坊不能被选中。 
+超过批次上限不能被选中。 
+用户排除的工坊不能被选中。 
+交期、成本计算由代码执行且可追溯。 
+无可行方案时明确说明，不静默推荐。 
+信息缺失或有歧义时追问。 
+数据无法回答时不编造。 
+24.3 工程质量 
+前端、后端、Skills、Tools、Workflow 分层清晰。 
+每个 Tool 有规格、非目标、失败模式和测试。 
+所有请求输入/输出有 Schema 校验。 
+LLM Provider 可配置，业务逻辑不绑定单一模型。 
+API Key 只在后端 Secret/环境变量。 
+Memory 有请求作用域、权限、过期与撤销机制。 
+日志含 trace_id，且不泄露秘密。 
+官方模拟器未被改动评分逻辑。 
+24.4 评估 
+30 条聊天请求均有标注和实际结果。 
+至少 5 条歧义/不可回答/诱发幻觉样例。 
+至少 5 条可行性/动作样例。 
+硬约束违规率单独报告。 
+正常模拟器报告已生成。 
+shock 场景按多个 seeds 平均。 
+与 baseline 对比使用同一官方 harness。 
+所有分数可由命令重新运行。 
+
+25. 术语表（小白速查） 
+术语 含义 
+Order 订单，一项生产任务。 
+Batch 发给外部工坊的一批工作；官方模拟器中一个订单整体作为一个批次，不支持拆分。 
+Workshop / subcontractor 外部工坊/分包商，工厂忙不过来时承接订单。 
+Capacity 日产能，单位 pieces/day。 
+Queue 当前积压工作折算的天数。 
+Lead time 这里主要指运输的固定天数。 
+Defect rate 批次发生缺陷并触发返工的概率。 
+Allocator 给官方模拟器使用的确定性分配函数。 
+Shock 模拟某家工坊临时关闭约两周的鲁棒性场景。 
+Schema 规定数据结构、字段类型和约束。 
+Trace 一次请求经过的节点、工具和耗时记录。 
+Audit trail 可追溯的操作与决策记录。 
+Idempotency key 防止同一动作被重复执行的请求标识。 
+p95 latency 95% 请求耗时不超过的时间，反映较慢请求体验。 
+
+附录：之前教学内容的整合与必须修正之处 
+A. 之前讲过的 Skill 区分 
+Tool： 明确输入、输出和用途的可调用函数。 
+Skill： 可复用专业能力，包含方法、规则、步骤、工具使用方式与验证标准。 
+Workflow： 规定任务顺序、条件分支、循环和暂停恢复。 
+Agent： 根据目标、上下文和运行规则决定下一步并调用工具。 
+B. 之前讲过的测试基础 
+from app.skills.workshop_eligibility import check_workshop_eligibility
+
+def test_active_workshop_with_supported_category():
+    order = {"order_id": "ORD-081", "category": "TOPS", "pieces": 500}
+    workshop = {"workshop_id": "W1", "makes": "TOPS+ACCESSORIES", "status": "ACTIVE", "max_batch_pieces": ""}
+    result = check_workshop_eligibility(order, workshop)
+    assert result["eligible"] is True
+    assert result["reasons"] == []
+
+def test_suspended_workshop_is_rejected():
+    order = {"order_id": "ORD-082", "category": "TOPS", "pieces": 500}
+    workshop = {"workshop_id": "W2", "makes": "TOPS", "status": "SUSPENDED", "max_batch_pieces": ""}
+    result = check_workshop_eligibility(order, workshop)
+    assert result["eligible"] is False
+    assert len(result["reasons"]) > 0
+
+def test_batch_limit_is_enforced():
+    order = {"order_id": "ORD-083", "category": "TOPS", "pieces": 1500}
+    workshop = {"workshop_id": "W3", "makes": "TOPS", "status": "ACTIVE", "max_batch_pieces": "1000"}
+    result = check_workshop_eligibility(order, workshop)
+    assert result["eligible"] is False
+    assert "订单数量超过工坊单批次上限" in result["reasons"] 
+运行 python -m pytest -v 。注意测试数据是人工构造的，不代表真实数据里 W1/W2/W3 的实际资料。 
+C. 之前讲过的 Memory 约束写入/读取概念 
+from datetime import datetime, timezone
+
+def save_task_constraint(request_id: str, imposed_by: str, constraint_type: str, target: str, expires_at: str | None = None) -> None:
+    created_at = datetime.now(timezone.utc).isoformat()  # 记录 UTC 审计时间
+    with sqlite3.connect(DB_PATH) as conn:  # 打开 SQLite 连接
+        conn.execute(
+            """INSERT INTO task_constraints (request_id, imposed_by, constraint_type, target, created_at, expires_at, active)
+               VALUES (?, ?, ?, ?, ?, ?, 1)""",
+            (request_id, imposed_by, constraint_type, target, created_at, expires_at),
+        )  # 参数化 SQL，避免直接拼接用户输入
+
+def get_task_constraints(request_id: str) -> list[dict]:
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row  # 结果可按列名访问
+        rows = conn.execute(
+            "SELECT * FROM task_constraints WHERE request_id = ? AND active = 1",
+            (request_id,),
+        ).fetchall()
+        return [dict(row) for row in rows]  # Row 转成普通字典 
+正式版必须补充： 数据库连接导入、DB_PATH 配置、表初始化、过期时间条件、撤销/幂等机制、权限校验、事务错误处理和测试。仅有 active=1 不代表约束尚未过期。 
+D. 之前讲过的推荐逻辑（概念） 
+先筛选合格工坊，再算交期和成本；有符合策略的候选时按明确规则排序；没有符合策略的候选时返回 INFEASIBLE ，给出无缺陷情景的最早日期和备选。不要把“没有稳妥方案”写成“推荐成功”。 
+E. 之前教学代码需要 Codex 特别复核的点 
+此前的示例代码是教学片段，不保证拼接后可直接运行；Codex 应在真实仓库中整理导入路径、数据库配置、类型、测试和依赖。 
+不要复制示例中的占位数据当作官方工坊数据。 
+工坊排除规则应使用稳定 ID 和别名表；只比较名称会漏掉格式差异。 
+资格判断应与官方 eligible_workshops() 对齐，优先直接复用官方辅助函数（若导入结构允许），否则写一致性测试。 
+官方 simulator 的队列是随 120 单动态更新的；单独的聊天交期函数无法替代它。 
+聊天层保守日期取整与官方 round() 是两套策略，必须明确标注。 
+推荐代码的测试不能出现永远为真的宽松断言；例如 assert x if condition else True 不适合验收。 
+订单数据中的厂内 status 和工坊 status 含义不同，不能混用。 
+“缺少字段”要在解析和校验阶段处理，不要让 KeyError 直接暴露给用户。 
+模型输出要通过 Pydantic 验证；Tool 返回值要可序列化成 JSON。 
+F. 给 Codex 的最终执行 Prompt（可以复制使用） 
+请阅读本文件《Track 2 Agent 平台产品手册与 Codex 实施规格》，并在当前仓库中实现系统。
+
+工作要求：
+1. 先扫描仓库，确认官方 track2 数据、data_dictionary.md、CHANGELOG.md 和 harness/simulate.py 的真实路径及版本；不要猜测或覆盖官方文件。
+2. 按本手册分阶段实现前端、FastAPI 后端、Skills、Tools、Prompt、Context/Memory、LangGraph Workflow、Eval、部署与监控。
+3. 官方 simulator 的规则、数据口径和评分逻辑是权威来源；如果本手册教学示例与官方代码冲突，按官方代码实现，并记录差异。
+4. 资格判断、交期、成本和确定性 allocator 必须由 Python 代码执行。LLM 不得负责权威算术，不得进入官方 allocator。
+5. 先实现可测试的纯 Python Skills，再包装 Tools，再接入 LLM/Workflow。
+6. 实现至少 30 条聊天请求评估，包含全部官方请求，保存人工标注、逐条结果、评分和失败分类。
+7. 实现前端聊天工作台、订单与工坊浏览、推荐详情、历史审计和评估报告页面。
+8. API Key 只能从后端环境变量/Secret Manager 读取；提交 .env.example，不提交 .env。
+9. 不虚构运行结果。执行 pytest、前端测试、API 测试、30 条 Eval 和官方 simulator；如有未通过项，报告真实失败结果。
+10. 每一阶段报告修改文件、关键设计、执行命令、测试通过/失败数、未完成项。最终提供清晰 README、启动说明、架构说明和部署说明。
+
+先从仓库勘察和实施计划开始，然后按阶段持续完成，不要只给建议或伪代码；尽可能直接修改当前项目文件并运行测试。 
+文档定位： 这是给初学者阅读、给 Codex 作为实现蓝图的整合手册。真实实施时，官方数据文件、官方 Track 2 项目说明、 data_dictionary.md 、 harness/simulate.py 与 CHANGELOG.md 是规则依据；本文中的教学代码需要在仓库中整理、验证后才能用于生产。 
+建议版本号：v1.0 · 2026-10-28 
+返回顶部 ↑ 
+
+
+
+↑ 顶部 

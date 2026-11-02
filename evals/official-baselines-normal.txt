@@ -1,0 +1,6 @@
+average over seeds 5105..5114
+policy           mean days  p90 days  % late  late days  % defect  % def pcs        cost  max share
+---------------------------------------------------------------------------------------------------
+random                21.9      46.7     34%        6.1        5%         6%     111,780        23%
+greedy_biggest        50.3      82.4     84%       26.5        5%         5%     108,430        70%
+cheapest             106.2     195.7     92%       81.9        8%         8%      85,960        70%

@@ -1,0 +1,24 @@
+services:
+  dispatch:
+    build: .
+    image: sweaterco-dispatch:1.0.0
+    ports:
+      - "127.0.0.1:${PORT:-8000}:8000"
+    environment:
+      LLM_PROVIDER: ${LLM_PROVIDER:-rules}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      APP_ACCESS_TOKEN: ${APP_ACCESS_TOKEN:-}
+      AUDIT_DB_PATH: /app/backend/runtime/audit.sqlite3
+    volumes:
+      - dispatch_audit:/app/backend/runtime
+    restart: unless-stopped
+    init: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 512m
+volumes:
+  dispatch_audit:
